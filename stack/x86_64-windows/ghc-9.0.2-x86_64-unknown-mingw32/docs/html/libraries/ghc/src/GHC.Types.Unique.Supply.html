@@ -1,0 +1,650 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-
+(c) The University of Glasgow 2006
+(c) The GRASP/AQUA Project, Glasgow University, 1992-1998
+-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-state-hack #-}</span><span>
+</span><span id="line-7"></span><span>    </span><span class="hs-comment">-- This -fno-state-hack is important</span><span>
+</span><span id="line-8"></span><span>    </span><span class="hs-comment">-- See Note [Optimising the unique supply]</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE DeriveFunctor #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE PatternSynonyms #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span class="hs-cpp">
+
+#if !defined(GHC_LOADED_INTO_GHCI)
+</span><span class="hs-pragma">{-# LANGUAGE UnboxedTuples #-}</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.Types.Unique.Supply</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-20"></span><span>        </span><span class="annot"><span class="hs-comment">-- * Main data type</span></span><span>
+</span><span id="line-21"></span><span>        </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier">UniqSupply</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- Abstractly</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span>        </span><span class="annot"><span class="hs-comment">-- ** Operations on supplies</span></span><span>
+</span><span id="line-24"></span><span>        </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#uniqFromSupply"><span class="hs-identifier">uniqFromSupply</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#uniqsFromSupply"><span class="hs-identifier">uniqsFromSupply</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- basic ops</span><span>
+</span><span id="line-25"></span><span>        </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#takeUniqFromSupply"><span class="hs-identifier">takeUniqFromSupply</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#uniqFromMask"><span class="hs-identifier">uniqFromMask</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span>        </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#mkSplitUniqSupply"><span class="hs-identifier">mkSplitUniqSupply</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>        </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#splitUniqSupply"><span class="hs-identifier">splitUniqSupply</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#listSplitUniqSupply"><span class="hs-identifier">listSplitUniqSupply</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span>        </span><span class="annot"><span class="hs-comment">-- * Unique supply monad and its abstraction</span></span><span>
+</span><span id="line-31"></span><span>        </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier">UniqSM</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#MonadUnique"><span class="hs-identifier">MonadUnique</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span>        </span><span class="annot"><span class="hs-comment">-- ** Operations on the monad</span></span><span>
+</span><span id="line-34"></span><span>        </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#initUs"><span class="hs-identifier">initUs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#initUs_"><span class="hs-identifier">initUs_</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span>        </span><span class="annot"><span class="hs-comment">-- * Set supply strategy</span></span><span>
+</span><span id="line-37"></span><span>        </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#initUniqSupply"><span class="hs-identifier">initUniqSupply</span></a></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Prelude.html"><span class="hs-identifier">GHC.Prelude</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.Unique.html"><span class="hs-identifier">GHC.Types.Unique</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Utils.Panic.Plain.html"><span class="hs-identifier">GHC.Utils.Panic.Plain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Utils.Panic.Plain.html#panic"><span class="hs-identifier">panic</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.html#"><span class="hs-identifier">GHC.IO</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Utils.Monad.html"><span class="hs-identifier">GHC.Utils.Monad</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.html#"><span class="hs-identifier">Control.Monad</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Data.Bits.html#"><span class="hs-identifier">Data.Bits</span></a></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Data.Char.html#"><span class="hs-identifier">Data.Char</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/GHC.Exts.html#"><span class="hs-identifier">GHC.Exts</span></a></span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier">inline</span></span><span> </span><span class="hs-special">)</span><span class="hs-cpp">
+
+#include &quot;Unique.h&quot;
+</span><span>
+</span><span id="line-55"></span><span class="hs-comment">{-
+************************************************************************
+*                                                                      *
+\subsection{Splittable Unique supply: @UniqSupply@}
+*                                                                      *
+************************************************************************
+-}</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">{- Note [How the unique supply works]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The basic idea (due to Lennart Augustsson) is that a UniqSupply is
+lazily-evaluated infinite tree.
+
+* At each MkSplitUniqSupply node is a unique Int, and two
+  sub-trees (see data UniqSupply)
+
+* takeUniqFromSupply :: UniqSupply -&gt; (Unique, UniqSupply)
+  returns the unique Int and one of the sub-trees
+
+* splitUniqSupply :: UniqSupply -&gt; (UniqSupply, UniqSupply)
+  returns the two sub-trees
+
+* When you poke on one of the thunks, it does a foreign call
+  to get a fresh Int from a thread-safe counter, and returns
+  a fresh MkSplitUniqSupply node.  This has to be as efficient
+  as possible: it should allocate only
+     * The fresh node
+     * A thunk for each sub-tree
+
+Note [Optimising the unique supply]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The inner loop of mkSplitUniqSupply is a function closure
+
+     mk_supply :: IO UniqSupply
+     mk_supply = unsafeInterleaveIO $
+                 genSym      &gt;&gt;= \ u -&gt;
+                 mk_supply   &gt;&gt;= \ s1 -&gt;
+                 mk_supply   &gt;&gt;= \ s2 -&gt;
+                 return (MkSplitUniqSupply (mask .|. u) s1 s2)
+
+It's a classic example of an IO action that is captured
+and the called repeatedly (see #18238 for some discussion).
+It turns out that we can get something like
+
+  $wmkSplitUniqSupply c# s
+    = letrec
+        mk_supply
+          = \s -&gt; unsafeDupableInterleaveIO1
+                    (\s2 -&gt; case noDuplicate# s2 of s3 -&gt;
+                            ...
+                            case mk_supply s4 of (# s5, t1 #) -&gt;
+                            ...
+                            (# s6, MkSplitUniqSupply ... #)
+      in mk_supply s
+
+This is bad becuase we allocate that inner (\s2...) every time.
+Why doesn't full laziness float out the (\s2...)?  Because of
+the state hack (#18238).
+
+So for this module we switch the state hack off -- it's an example
+of when it makes things worse rather than better.  And we use
+multiShotIO (see Note [multiShotIO]) thus:
+
+     mk_supply = multiShotIO $
+                 unsafeInterleaveIO $
+                 genSym      &gt;&gt;= \ u -&gt;
+                 ...
+
+Now full laziness can float that lambda out, and we get
+
+  $wmkSplitUniqSupply c# s
+    = letrec
+        lvl = \s2 -&gt; case noDuplicate# s2 of s3 -&gt;
+                     ...
+                     case unsafeDupableInterleaveIO
+                              lvl s4 of (# s5, t1 #) -&gt;
+                     ...
+                     (# s6, MkSplitUniqSupply ... #)
+      in unsafeDupableInterleaveIO1 lvl s
+
+This is all terribly delicate.  It just so happened that before I
+fixed #18078, and even with the state-hack still enabled, we were
+getting this:
+
+  $wmkSplitUniqSupply c# s
+    = letrec
+        mk_supply = \s2 -&gt; case noDuplicate# s2 of s3 -&gt;
+                           ...
+                           case mks_help s3 of (# s5,t1 #) -&gt;
+                           ...
+                           (# s6, MkSplitUniqSupply ... #)
+        mks_help = unsafeDupableInterleaveIO mk_supply
+           -- mks_help marked as loop breaker
+      in mks_help s
+
+The fact that we didn't need full laziness was somewhat fortuitious.
+We got the right number of allocations. But the partial application of
+the arity-2 unsafeDupableInterleaveIO in mks_help makes it quite a
+bit slower.  (Test perf/should_run/UniqLoop had a 20% perf change.)
+
+Sigh.  The test perf/should_run/UniqLoop keeps track of this loop.
+Watch it carefully.
+
+Note [multiShotIO]
+~~~~~~~~~~~~~~~~~~
+The function multiShotIO :: IO a -&gt; IO a
+says that the argument IO action may be invoked repeatedly (is
+multi-shot), and so there should be a multi-shot lambda around it.
+It's quite easy to define, in any module with `-fno-state-hack`:
+    multiShotIO :: IO a -&gt; IO a
+    {-# INLINE multiShotIO #-}
+    multiShotIO (IO m) = IO (\s -&gt; inline m s)
+
+Because of -fno-state-hack, that '\s' will be multi-shot. Now,
+ignoring the casts from IO:
+    multiShotIO (\ss{one-shot}. blah)
+    ==&gt; let m = \ss{one-shot}. blah
+        in \s. inline m s
+    ==&gt; \s. (\ss{one-shot}.blah) s
+    ==&gt; \s. blah[s/ss]
+
+The magic `inline` function does two things
+* It prevents eta reduction.  If we wrote just
+      multiShotIO (IO m) = IO (\s -&gt; m s)
+  the lamda would eta-reduce to 'm' and all would be lost.
+
+* It helps ensure that 'm' really does inline.
+
+Note that 'inline' evaporates in phase 0.  See Note [inlineIdMagic]
+in GHC.Core.Opt.ConstantFold.match_inline.
+
+The INLINE pragma on multiShotIO is very important, else the
+'inline' call will evaporate when compiling the module that
+defines 'multiShotIO', before it is ever exported.
+-}</span><span>
+</span><span id="line-190"></span><span>
+</span><span id="line-191"></span><span>
+</span><span id="line-192"></span><span class="hs-comment">-- | Unique Supply</span><span>
+</span><span id="line-193"></span><span class="hs-comment">--</span><span>
+</span><span id="line-194"></span><span class="hs-comment">-- A value of type 'UniqSupply' is unique, and it can</span><span>
+</span><span id="line-195"></span><span class="hs-comment">-- supply /one/ distinct 'Unique'.  Also, from the supply, one can</span><span>
+</span><span id="line-196"></span><span class="hs-comment">-- also manufacture an arbitrary number of further 'UniqueSupply' values,</span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- which will be distinct from the first and from all others.</span><span>
+</span><span id="line-198"></span><span class="hs-keyword">data</span><span> </span><span id="UniqSupply"><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-var">UniqSupply</span></a></span></span><span>
+</span><span id="line-199"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="MkSplitUniqSupply"><span class="annot"><a href="GHC.Types.Unique.Supply.html#MkSplitUniqSupply"><span class="hs-identifier hs-var">MkSplitUniqSupply</span></a></span></span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-comment">-- make the Unique with this</span><span>
+</span><span id="line-200"></span><span>                   </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span>
+</span><span id="line-201"></span><span>                                </span><span class="hs-comment">-- when split =&gt; these two supplies</span><span>
+</span><span id="line-202"></span><span>
+</span><span id="line-203"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#mkSplitUniqSupply"><span class="hs-identifier hs-type">mkSplitUniqSupply</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span>
+</span><span id="line-204"></span><span class="hs-comment">-- ^ Create a unique supply out of thin air. The character given must</span><span>
+</span><span id="line-205"></span><span class="hs-comment">-- be distinct from those of all calls to this function in the compiler</span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- for the values generated to be truly unique.</span><span>
+</span><span id="line-207"></span><span>
+</span><span id="line-208"></span><span class="hs-comment">-- See Note [How the unique supply works]</span><span>
+</span><span id="line-209"></span><span class="hs-comment">-- See Note [Optimising the unique supply]</span><span>
+</span><span id="line-210"></span><span id="mkSplitUniqSupply"><span class="annot"><span class="annottext">mkSplitUniqSupply :: Char -&gt; IO UniqSupply
+</span><a href="GHC.Types.Unique.Supply.html#mkSplitUniqSupply"><span class="hs-identifier hs-var hs-var">mkSplitUniqSupply</span></a></span></span><span> </span><span id="local-6989586621680830183"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621680830183"><span class="hs-identifier hs-var">c</span></a></span></span><span>
+</span><span id="line-211"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO UniqSupply
+</span><a href="#local-6989586621680830182"><span class="hs-identifier hs-var">mk_supply</span></a></span><span>
+</span><span id="line-212"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-213"></span><span>     </span><span class="hs-glyph">!</span><span id="local-6989586621680830179"><span class="annot"><span class="annottext">mask :: Int
+</span><a href="#local-6989586621680830179"><span class="hs-identifier hs-var hs-var">mask</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Char -&gt; Int
+</span><a href="../../base/src/GHC.Base.html#ord"><span class="hs-identifier hs-var">ord</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621680830183"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><a href="../../base/src/Data.Bits.html#shiftL"><span class="hs-operator hs-var">`shiftL`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="GHC.Types.Unique.html#uNIQUE_BITS"><span class="hs-identifier hs-var">uNIQUE_BITS</span></a></span><span>
+</span><span id="line-214"></span><span>
+</span><span id="line-215"></span><span>        </span><span class="hs-comment">-- Here comes THE MAGIC: see Note [How the unique supply works]</span><span>
+</span><span id="line-216"></span><span>        </span><span class="hs-comment">-- This is one of the most hammered bits in the whole compiler</span><span>
+</span><span id="line-217"></span><span>        </span><span class="hs-comment">-- See Note [Optimising the unique supply]</span><span>
+</span><span id="line-218"></span><span>        </span><span class="hs-comment">-- NB: Use unsafeInterleaveIO for thread-safety.</span><span>
+</span><span id="line-219"></span><span>     </span><span id="local-6989586621680830182"><span class="annot"><span class="annottext">mk_supply :: IO UniqSupply
+</span><a href="#local-6989586621680830182"><span class="hs-identifier hs-var hs-var">mk_supply</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO UniqSupply -&gt; IO UniqSupply
+forall a. IO a -&gt; IO a
+</span><a href="GHC.Types.Unique.Supply.html#multiShotIO"><span class="hs-identifier hs-var">multiShotIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO UniqSupply -&gt; IO UniqSupply) -&gt; IO UniqSupply -&gt; IO UniqSupply
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-220"></span><span>                 </span><span class="annot"><span class="annottext">IO UniqSupply -&gt; IO UniqSupply
+forall a. IO a -&gt; IO a
+</span><a href="../../base/src/GHC.IO.Unsafe.html#unsafeInterleaveIO"><span class="hs-identifier hs-var">unsafeInterleaveIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO UniqSupply -&gt; IO UniqSupply) -&gt; IO UniqSupply -&gt; IO UniqSupply
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-221"></span><span>                 </span><span class="annot"><span class="annottext">IO Int
+</span><a href="GHC.Types.Unique.Supply.html#genSym"><span class="hs-identifier hs-var">genSym</span></a></span><span>      </span><span class="annot"><span class="annottext">IO Int -&gt; (Int -&gt; IO UniqSupply) -&gt; IO UniqSupply
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621680830167"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830167"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-222"></span><span>                 </span><span class="annot"><span class="annottext">IO UniqSupply
+</span><a href="#local-6989586621680830182"><span class="hs-identifier hs-var">mk_supply</span></a></span><span>   </span><span class="annot"><span class="annottext">IO UniqSupply -&gt; (UniqSupply -&gt; IO UniqSupply) -&gt; IO UniqSupply
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621680830166"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830166"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-223"></span><span>                 </span><span class="annot"><span class="annottext">IO UniqSupply
+</span><a href="#local-6989586621680830182"><span class="hs-identifier hs-var">mk_supply</span></a></span><span>   </span><span class="annot"><span class="annottext">IO UniqSupply -&gt; (UniqSupply -&gt; IO UniqSupply) -&gt; IO UniqSupply
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621680830165"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830165"><span class="hs-identifier hs-var">s2</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-224"></span><span>                 </span><span class="annot"><span class="annottext">UniqSupply -&gt; IO UniqSupply
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; UniqSupply -&gt; UniqSupply -&gt; UniqSupply
+</span><a href="GHC.Types.Unique.Supply.html#MkSplitUniqSupply"><span class="hs-identifier hs-var">MkSplitUniqSupply</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830179"><span class="hs-identifier hs-var">mask</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Bits a =&gt; a -&gt; a -&gt; a
+</span><a href="../../base/src/Data.Bits.html#.%7C."><span class="hs-operator hs-var">.|.</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830167"><span class="hs-identifier hs-var">u</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830166"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830165"><span class="hs-identifier hs-var">s2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-225"></span><span>
+</span><span id="line-226"></span><span id="local-6989586621680830275"><span class="annot"><a href="GHC.Types.Unique.Supply.html#multiShotIO"><span class="hs-identifier hs-type">multiShotIO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621680830275"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621680830275"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-227"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#multiShotIO"><span class="hs-pragma hs-type">multiShotIO</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-228"></span><span class="hs-comment">-- See Note [multiShotIO]</span><span>
+</span><span id="line-229"></span><span id="multiShotIO"><span class="annot"><span class="annottext">multiShotIO :: forall a. IO a -&gt; IO a
+</span><a href="GHC.Types.Unique.Supply.html#multiShotIO"><span class="hs-identifier hs-var hs-var">multiShotIO</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span id="local-6989586621680830163"><span class="annot"><span class="annottext">State# RealWorld -&gt; (# State# RealWorld, a #)
+</span><a href="#local-6989586621680830163"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(State# RealWorld -&gt; (# State# RealWorld, a #)) -&gt; IO a
+forall a. (State# RealWorld -&gt; (# State# RealWorld, a #)) -&gt; IO a
+</span><span class="hs-identifier hs-var">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680830162"><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621680830162"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(State# RealWorld -&gt; (# State# RealWorld, a #))
+-&gt; State# RealWorld -&gt; (# State# RealWorld, a #)
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">inline</span></span><span> </span><span class="annot"><span class="annottext">State# RealWorld -&gt; (# State# RealWorld, a #)
+</span><a href="#local-6989586621680830163"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621680830162"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-230"></span><span>
+</span><span id="line-231"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">ccall</span></span><span> </span><span class="annot"><span class="hs-keyword">unsafe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;genSym&quot;</span></span><span> </span><span id="genSym"><span class="annot"><a href="GHC.Types.Unique.Supply.html#genSym"><span class="hs-identifier hs-var">genSym</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-232"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">ccall</span></span><span> </span><span class="annot"><span class="hs-keyword">unsafe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;initGenSym&quot;</span></span><span> </span><span id="initUniqSupply"><span class="annot"><a href="GHC.Types.Unique.Supply.html#initUniqSupply"><span class="hs-identifier hs-var">initUniqSupply</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>
+</span><span id="line-234"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#splitUniqSupply"><span class="hs-identifier hs-type">splitUniqSupply</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-235"></span><span class="hs-comment">-- ^ Build two 'UniqSupply' from a single one, each of which</span><span>
+</span><span id="line-236"></span><span class="hs-comment">-- can supply its own 'Unique'.</span><span>
+</span><span id="line-237"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#listSplitUniqSupply"><span class="hs-identifier hs-type">listSplitUniqSupply</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- ^ Create an infinite list of 'UniqSupply' from a single one</span><span>
+</span><span id="line-239"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#uniqFromSupply"><span class="hs-identifier hs-type">uniqFromSupply</span></a></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span>
+</span><span id="line-240"></span><span class="hs-comment">-- ^ Obtain the 'Unique' from this particular 'UniqSupply'</span><span>
+</span><span id="line-241"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#uniqsFromSupply"><span class="hs-identifier hs-type">uniqsFromSupply</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-comment">-- Infinite</span><span>
+</span><span id="line-242"></span><span class="hs-comment">-- ^ Obtain an infinite list of 'Unique' that can be generated by constant splitting of the supply</span><span>
+</span><span id="line-243"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#takeUniqFromSupply"><span class="hs-identifier hs-type">takeUniqFromSupply</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-244"></span><span class="hs-comment">-- ^ Obtain the 'Unique' from this particular 'UniqSupply', and a new supply</span><span>
+</span><span id="line-245"></span><span>
+</span><span id="line-246"></span><span id="splitUniqSupply"><span class="annot"><span class="annottext">splitUniqSupply :: UniqSupply -&gt; (UniqSupply, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#splitUniqSupply"><span class="hs-identifier hs-var hs-var">splitUniqSupply</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#MkSplitUniqSupply"><span class="hs-identifier hs-type">MkSplitUniqSupply</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680830161"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830161"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621680830160"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830160"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830161"><span class="hs-identifier hs-var">s1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830160"><span class="hs-identifier hs-var">s2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-247"></span><span id="listSplitUniqSupply"><span class="annot"><span class="annottext">listSplitUniqSupply :: UniqSupply -&gt; [UniqSupply]
+</span><a href="GHC.Types.Unique.Supply.html#listSplitUniqSupply"><span class="hs-identifier hs-var hs-var">listSplitUniqSupply</span></a></span></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#MkSplitUniqSupply"><span class="hs-identifier hs-type">MkSplitUniqSupply</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680830159"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830159"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621680830158"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830158"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830159"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; [UniqSupply] -&gt; [UniqSupply]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; [UniqSupply]
+</span><a href="GHC.Types.Unique.Supply.html#listSplitUniqSupply"><span class="hs-identifier hs-var">listSplitUniqSupply</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830158"><span class="hs-identifier hs-var">s2</span></a></span><span>
+</span><span id="line-248"></span><span>
+</span><span id="line-249"></span><span id="uniqFromSupply"><span class="annot"><span class="annottext">uniqFromSupply :: UniqSupply -&gt; Unique
+</span><a href="GHC.Types.Unique.Supply.html#uniqFromSupply"><span class="hs-identifier hs-var hs-var">uniqFromSupply</span></a></span></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#MkSplitUniqSupply"><span class="hs-identifier hs-type">MkSplitUniqSupply</span></a></span><span> </span><span id="local-6989586621680830157"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830157"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Unique
+</span><a href="GHC.Types.Unique.html#mkUniqueGrimily"><span class="hs-identifier hs-var">mkUniqueGrimily</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830157"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-250"></span><span id="uniqsFromSupply"><span class="annot"><span class="annottext">uniqsFromSupply :: UniqSupply -&gt; [Unique]
+</span><a href="GHC.Types.Unique.Supply.html#uniqsFromSupply"><span class="hs-identifier hs-var hs-var">uniqsFromSupply</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#MkSplitUniqSupply"><span class="hs-identifier hs-type">MkSplitUniqSupply</span></a></span><span> </span><span id="local-6989586621680830155"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830155"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680830154"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830154"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Unique
+</span><a href="GHC.Types.Unique.html#mkUniqueGrimily"><span class="hs-identifier hs-var">mkUniqueGrimily</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830155"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Unique -&gt; [Unique] -&gt; [Unique]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; [Unique]
+</span><a href="GHC.Types.Unique.Supply.html#uniqsFromSupply"><span class="hs-identifier hs-var">uniqsFromSupply</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830154"><span class="hs-identifier hs-var">s2</span></a></span><span>
+</span><span id="line-251"></span><span id="takeUniqFromSupply"><span class="annot"><span class="annottext">takeUniqFromSupply :: UniqSupply -&gt; (Unique, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#takeUniqFromSupply"><span class="hs-identifier hs-var hs-var">takeUniqFromSupply</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#MkSplitUniqSupply"><span class="hs-identifier hs-type">MkSplitUniqSupply</span></a></span><span> </span><span id="local-6989586621680830153"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830153"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621680830152"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830152"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Unique
+</span><a href="GHC.Types.Unique.html#mkUniqueGrimily"><span class="hs-identifier hs-var">mkUniqueGrimily</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830153"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830152"><span class="hs-identifier hs-var">s1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-252"></span><span>
+</span><span id="line-253"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#uniqFromMask"><span class="hs-identifier hs-type">uniqFromMask</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Char</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span>
+</span><span id="line-254"></span><span id="uniqFromMask"><span class="annot"><span class="annottext">uniqFromMask :: Char -&gt; IO Unique
+</span><a href="GHC.Types.Unique.Supply.html#uniqFromMask"><span class="hs-identifier hs-var hs-var">uniqFromMask</span></a></span></span><span> </span><span id="local-6989586621680830151"><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621680830151"><span class="hs-identifier hs-var">mask</span></a></span></span><span>
+</span><span id="line-255"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span> </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680830150"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830150"><span class="hs-identifier hs-var">uqNum</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Int
+</span><a href="GHC.Types.Unique.Supply.html#genSym"><span class="hs-identifier hs-var">genSym</span></a></span><span>
+</span><span id="line-256"></span><span>       </span><span class="hs-special">;</span><span> </span><span class="annot"><span class="annottext">Unique -&gt; IO Unique
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">(Unique -&gt; IO Unique) -&gt; Unique -&gt; IO Unique
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24%21"><span class="hs-operator hs-var">$!</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Int -&gt; Unique
+</span><a href="GHC.Types.Unique.html#mkUnique"><span class="hs-identifier hs-var">mkUnique</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621680830151"><span class="hs-identifier hs-var">mask</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680830150"><span class="hs-identifier hs-var">uqNum</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-257"></span><span>
+</span><span id="line-258"></span><span>
+</span><span id="line-259"></span><span class="hs-comment">{-
+************************************************************************
+*                                                                      *
+\subsubsection[UniqSupply-monad]{@UniqSupply@ monad: @UniqSM@}
+*                                                                      *
+************************************************************************
+-}</span><span>
+</span><span id="line-266"></span><span>
+</span><span id="line-267"></span><span class="hs-comment">-- Avoids using unboxed tuples when loading into GHCi</span><span class="hs-cpp">
+#if !defined(GHC_LOADED_INTO_GHCI)
+</span><span>
+</span><span id="line-270"></span><span class="hs-keyword">type</span><span> </span><span id="UniqResult"><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-var">UniqResult</span></a></span></span><span> </span><span id="local-6989586621680830147"><span class="annot"><a href="#local-6989586621680830147"><span class="hs-identifier hs-type">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(#</span><span> </span><span class="annot"><a href="#local-6989586621680830147"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-special">#)</span><span>
+</span><span id="line-271"></span><span>
+</span><span id="line-272"></span><span id="local-6989586621680830261"><span id="local-6989586621680830262"><span class="hs-keyword">pattern</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680830262"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680830261"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(#</span><span> </span><span class="annot"><a href="#local-6989586621680830262"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621680830261"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">#)</span></span></span><span>
+</span><span id="line-273"></span><span class="hs-keyword">pattern</span><span> </span><span id="%24mUniqResult"><span id="%24bUniqResult"><span id="UniqResult"><span class="annot"><span class="annottext">$mUniqResult :: forall {r} {a} {b}.
+(# a, b #) -&gt; (a -&gt; b -&gt; r) -&gt; (Void# -&gt; r) -&gt; r
+$bUniqResult :: forall a b. a -&gt; b -&gt; (# a, b #)
+</span><a href="GHC.Types.Unique.Supply.html#%24mUniqResult"><span class="hs-identifier hs-var hs-var hs-var">UniqResult</span></a></span></span></span></span><span> </span><span class="annot"><a href="#local-6989586621680830143"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830142"><span class="hs-identifier hs-type">y</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(#</span><span> </span><span id="local-6989586621680830143"><span class="annot"><a href="#local-6989586621680830143"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680830142"><span class="annot"><a href="#local-6989586621680830142"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-special">#)</span><span>
+</span><span id="line-274"></span><span class="hs-pragma">{-# COMPLETE</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-pragma hs-type">UniqResult</span></a></span><span> </span><span class="hs-pragma">#-}</span><span class="hs-cpp">
+
+#else
+</span><span>
+</span><span id="line-278"></span><span class="hs-keyword">data</span><span> </span><span class="hs-identifier">UniqResult</span><span> </span><span class="hs-identifier">result</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">UniqResult</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">result</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-identifier">UniqSupply</span><span>
+</span><span id="line-279"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Functor</span><span class="hs-special">)</span><span class="hs-cpp">
+
+#endif
+</span><span>
+</span><span id="line-283"></span><span class="hs-comment">-- | A monad which just gives the ability to obtain 'Unique's</span><span>
+</span><span id="line-284"></span><span class="hs-keyword">newtype</span><span> </span><span id="UniqSM"><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-var">UniqSM</span></a></span></span><span> </span><span id="local-6989586621680830256"><span class="annot"><a href="#local-6989586621680830256"><span class="hs-identifier hs-type">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="USM"><span class="annot"><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unUSM"><span class="annot"><span class="annottext">forall result. UniqSM result -&gt; UniqSupply -&gt; UniqResult result
+</span><a href="GHC.Types.Unique.Supply.html#unUSM"><span class="hs-identifier hs-var hs-var">unUSM</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830256"><span class="hs-identifier hs-type">result</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-285"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680830136"><span id="local-6989586621680830138"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; UniqSM a -&gt; UniqSM b)
+-&gt; (forall a b. a -&gt; UniqSM b -&gt; UniqSM a) -&gt; Functor UniqSM
+forall a b. a -&gt; UniqSM b -&gt; UniqSM a
+forall a b. (a -&gt; b) -&gt; UniqSM a -&gt; UniqSM b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: forall a b. a -&gt; UniqSM b -&gt; UniqSM a
+$c&lt;$ :: forall a b. a -&gt; UniqSM b -&gt; UniqSM a
+fmap :: forall a b. (a -&gt; b) -&gt; UniqSM a -&gt; UniqSM b
+$cfmap :: forall a b. (a -&gt; b) -&gt; UniqSM a -&gt; UniqSM b
+</span><a href="../../base/src/GHC.Base.html#Functor"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-286"></span><span>
+</span><span id="line-287"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680830128"><span class="annot"><a href="../../base/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-288"></span><span>  </span><span id="local-6989586621680830126"><span class="annot"><span class="annottext">&gt;&gt;= :: forall a b. UniqSM a -&gt; (a -&gt; UniqSM b) -&gt; UniqSM b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var hs-var hs-var hs-var">(&gt;&gt;=)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSM a -&gt; (a -&gt; UniqSM b) -&gt; UniqSM b
+forall a b. UniqSM a -&gt; (a -&gt; UniqSM b) -&gt; UniqSM b
+</span><a href="GHC.Types.Unique.Supply.html#thenUs"><span class="hs-identifier hs-var">thenUs</span></a></span><span>
+</span><span id="line-289"></span><span>  </span><span id="local-6989586621680830123"><span class="annot"><span class="annottext">&gt;&gt; :: forall a b. UniqSM a -&gt; UniqSM b -&gt; UniqSM b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var hs-var hs-var hs-var">(&gt;&gt;)</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSM a -&gt; UniqSM b -&gt; UniqSM b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><a href="../../base/src/GHC.Base.html#%2A%3E"><span class="hs-operator hs-var">(*&gt;)</span></a></span><span>
+</span><span id="line-290"></span><span>
+</span><span id="line-291"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680830114"><span id="local-6989586621680830117"><span class="annot"><a href="../../base/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-type">Applicative</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-292"></span><span>    </span><span id="local-6989586621680830112"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; UniqSM a
+</span><a href="../../base/src/GHC.Base.html#pure"><span class="hs-identifier hs-var hs-var hs-var hs-var">pure</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; UniqSM a
+forall a. a -&gt; UniqSM a
+</span><a href="GHC.Types.Unique.Supply.html#returnUs"><span class="hs-identifier hs-var">returnUs</span></a></span><span>
+</span><span id="line-293"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-type">USM</span></a></span><span> </span><span id="local-6989586621680830110"><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult (a -&gt; b)
+</span><a href="#local-6989586621680830110"><span class="hs-identifier hs-var">f</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680830109"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. UniqSM (a -&gt; b) -&gt; UniqSM a -&gt; UniqSM b
+</span><a href="../../base/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;*&gt;</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-type">USM</span></a></span><span> </span><span id="local-6989586621680830108"><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult a
+</span><a href="#local-6989586621680830108"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; UniqResult b) -&gt; UniqSM b
+forall result. (UniqSupply -&gt; UniqResult result) -&gt; UniqSM result
+</span><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span><span> </span><span class="annot"><span class="annottext">((UniqSupply -&gt; UniqResult b) -&gt; UniqSM b)
+-&gt; (UniqSupply -&gt; UniqResult b) -&gt; UniqSM b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680830107"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830107"><span class="hs-identifier hs-var">us0</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult (a -&gt; b)
+</span><a href="#local-6989586621680830110"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830107"><span class="hs-identifier hs-var">us0</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-294"></span><span>                            </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span id="local-6989586621680830106"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621680830106"><span class="hs-identifier hs-var">ff</span></a></span></span><span> </span><span id="local-6989586621680830105"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830105"><span class="hs-identifier hs-var">us1</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult a
+</span><a href="#local-6989586621680830108"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830105"><span class="hs-identifier hs-var">us1</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-295"></span><span>                              </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span id="local-6989586621680830104"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830104"><span class="hs-identifier hs-var">xx</span></a></span></span><span> </span><span id="local-6989586621680830103"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830103"><span class="hs-identifier hs-var">us2</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; UniqSupply -&gt; UniqResult b
+forall a b. a -&gt; b -&gt; (# a, b #)
+</span><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-var">UniqResult</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621680830106"><span class="hs-identifier hs-var">ff</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830104"><span class="hs-identifier hs-var">xx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830103"><span class="hs-identifier hs-var">us2</span></a></span><span>
+</span><span id="line-296"></span><span>    </span><span id="local-6989586621680830102"><span class="annot"><span class="annottext">*&gt; :: forall a b. UniqSM a -&gt; UniqSM b -&gt; UniqSM b
+</span><a href="../../base/src/GHC.Base.html#%2A%3E"><span class="hs-operator hs-var hs-var hs-var hs-var">(*&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSM a -&gt; UniqSM b -&gt; UniqSM b
+forall a b. UniqSM a -&gt; UniqSM b -&gt; UniqSM b
+</span><a href="GHC.Types.Unique.Supply.html#thenUs_"><span class="hs-identifier hs-var">thenUs_</span></a></span><span>
+</span><span id="line-297"></span><span>
+</span><span id="line-298"></span><span class="hs-comment">-- TODO: try to get rid of this instance</span><span>
+</span><span id="line-299"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-300"></span><span>    </span><span id="local-6989586621680830095"><span class="annot"><span class="annottext">fail :: forall a. String -&gt; UniqSM a
+</span><a href="../../base/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var hs-var hs-var hs-var">fail</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; UniqSM a
+forall a. String -&gt; a
+</span><a href="GHC.Utils.Panic.Plain.html#panic"><span class="hs-identifier hs-var">panic</span></a></span><span>
+</span><span id="line-301"></span><span>
+</span><span id="line-302"></span><span class="hs-comment">-- | Run the 'UniqSM' action, returning the final 'UniqSupply'</span><span>
+</span><span id="line-303"></span><span id="local-6989586621680830222"><span class="annot"><a href="GHC.Types.Unique.Supply.html#initUs"><span class="hs-identifier hs-type">initUs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830222"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680830222"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-304"></span><span id="initUs"><span class="annot"><span class="annottext">initUs :: forall a. UniqSupply -&gt; UniqSM a -&gt; (a, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#initUs"><span class="hs-identifier hs-var hs-var">initUs</span></a></span></span><span> </span><span id="local-6989586621680830094"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830094"><span class="hs-identifier hs-var">init_us</span></a></span></span><span> </span><span id="local-6989586621680830093"><span class="annot"><span class="annottext">UniqSM a
+</span><a href="#local-6989586621680830093"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSM a -&gt; UniqSupply -&gt; UniqResult a
+forall result. UniqSM result -&gt; UniqSupply -&gt; UniqResult result
+</span><a href="GHC.Types.Unique.Supply.html#unUSM"><span class="hs-identifier hs-var hs-var">unUSM</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSM a
+</span><a href="#local-6989586621680830093"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830094"><span class="hs-identifier hs-var">init_us</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span id="local-6989586621680830092"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830092"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621680830091"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830091"><span class="hs-identifier hs-var">us</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830092"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830091"><span class="hs-identifier hs-var">us</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-305"></span><span>
+</span><span id="line-306"></span><span class="hs-comment">-- | Run the 'UniqSM' action, discarding the final 'UniqSupply'</span><span>
+</span><span id="line-307"></span><span id="local-6989586621680830220"><span class="annot"><a href="GHC.Types.Unique.Supply.html#initUs_"><span class="hs-identifier hs-type">initUs_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830220"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680830220"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-308"></span><span id="initUs_"><span class="annot"><span class="annottext">initUs_ :: forall a. UniqSupply -&gt; UniqSM a -&gt; a
+</span><a href="GHC.Types.Unique.Supply.html#initUs_"><span class="hs-identifier hs-var hs-var">initUs_</span></a></span></span><span> </span><span id="local-6989586621680830090"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830090"><span class="hs-identifier hs-var">init_us</span></a></span></span><span> </span><span id="local-6989586621680830089"><span class="annot"><span class="annottext">UniqSM a
+</span><a href="#local-6989586621680830089"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSM a -&gt; UniqSupply -&gt; UniqResult a
+forall result. UniqSM result -&gt; UniqSupply -&gt; UniqResult result
+</span><a href="GHC.Types.Unique.Supply.html#unUSM"><span class="hs-identifier hs-var hs-var">unUSM</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSM a
+</span><a href="#local-6989586621680830089"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830090"><span class="hs-identifier hs-var">init_us</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span id="local-6989586621680830088"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830088"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830088"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-309"></span><span>
+</span><span id="line-310"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#thenUs"><span class="hs-pragma hs-type">thenUs</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-311"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#returnUs"><span class="hs-pragma hs-type">returnUs</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-312"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#splitUniqSupply"><span class="hs-pragma hs-type">splitUniqSupply</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-313"></span><span>
+</span><span id="line-314"></span><span class="hs-comment">-- @thenUs@ is where we split the @UniqSupply@.</span><span>
+</span><span id="line-315"></span><span>
+</span><span id="line-316"></span><span id="local-6989586621680830218"><span class="annot"><a href="GHC.Types.Unique.Supply.html#liftUSM"><span class="hs-identifier hs-type">liftUSM</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830218"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680830218"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-317"></span><span id="liftUSM"><span class="annot"><span class="annottext">liftUSM :: forall a. UniqSM a -&gt; UniqSupply -&gt; (a, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#liftUSM"><span class="hs-identifier hs-var hs-var">liftUSM</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-type">USM</span></a></span><span> </span><span id="local-6989586621680830086"><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult a
+</span><a href="#local-6989586621680830086"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680830085"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830085"><span class="hs-identifier hs-var">us0</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult a
+</span><a href="#local-6989586621680830086"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830085"><span class="hs-identifier hs-var">us0</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span id="local-6989586621680830084"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830084"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621680830083"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830083"><span class="hs-identifier hs-var">us1</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830084"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830083"><span class="hs-identifier hs-var">us1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-318"></span><span>
+</span><span id="line-319"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.Fix.html#MonadFix"><span class="hs-identifier hs-type">MonadFix</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-320"></span><span>    </span><span id="local-6989586621680830077"><span class="annot"><span class="annottext">mfix :: forall a. (a -&gt; UniqSM a) -&gt; UniqSM a
+</span><a href="../../base/src/Control.Monad.Fix.html#mfix"><span class="hs-identifier hs-var hs-var hs-var hs-var">mfix</span></a></span></span><span> </span><span id="local-6989586621680830076"><span class="annot"><span class="annottext">a -&gt; UniqSM a
+</span><a href="#local-6989586621680830076"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; UniqResult a) -&gt; UniqSM a
+forall result. (UniqSupply -&gt; UniqResult result) -&gt; UniqSM result
+</span><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680830075"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830075"><span class="hs-identifier hs-var">us0</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680830074"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830074"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621680830073"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830073"><span class="hs-identifier hs-var">us1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSM a -&gt; UniqSupply -&gt; (a, UniqSupply)
+forall a. UniqSM a -&gt; UniqSupply -&gt; (a, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#liftUSM"><span class="hs-identifier hs-var">liftUSM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; UniqSM a
+</span><a href="#local-6989586621680830076"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830074"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830075"><span class="hs-identifier hs-var">us0</span></a></span><span> </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">a -&gt; UniqSupply -&gt; UniqResult a
+forall a b. a -&gt; b -&gt; (# a, b #)
+</span><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-var">UniqResult</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830074"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830073"><span class="hs-identifier hs-var">us1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-321"></span><span>
+</span><span id="line-322"></span><span id="local-6989586621680830071"><span id="local-6989586621680830072"><span class="annot"><a href="GHC.Types.Unique.Supply.html#thenUs"><span class="hs-identifier hs-type">thenUs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830072"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680830072"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830071"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830071"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-323"></span><span id="thenUs"><span class="annot"><span class="annottext">thenUs :: forall a b. UniqSM a -&gt; (a -&gt; UniqSM b) -&gt; UniqSM b
+</span><a href="GHC.Types.Unique.Supply.html#thenUs"><span class="hs-identifier hs-var hs-var">thenUs</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-type">USM</span></a></span><span> </span><span id="local-6989586621680830070"><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult a
+</span><a href="#local-6989586621680830070"><span class="hs-identifier hs-var">expr</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680830069"><span class="annot"><span class="annottext">a -&gt; UniqSM b
+</span><a href="#local-6989586621680830069"><span class="hs-identifier hs-var">cont</span></a></span></span><span>
+</span><span id="line-324"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; UniqResult b) -&gt; UniqSM b
+forall result. (UniqSupply -&gt; UniqResult result) -&gt; UniqSM result
+</span><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680830068"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830068"><span class="hs-identifier hs-var">us0</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult a
+</span><a href="#local-6989586621680830070"><span class="hs-identifier hs-var">expr</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830068"><span class="hs-identifier hs-var">us0</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-325"></span><span>                   </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span id="local-6989586621680830067"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830067"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span id="local-6989586621680830066"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830066"><span class="hs-identifier hs-var">us1</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">UniqSM b -&gt; UniqSupply -&gt; UniqResult b
+forall result. UniqSM result -&gt; UniqSupply -&gt; UniqResult result
+</span><a href="GHC.Types.Unique.Supply.html#unUSM"><span class="hs-identifier hs-var hs-var">unUSM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; UniqSM b
+</span><a href="#local-6989586621680830069"><span class="hs-identifier hs-var">cont</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830067"><span class="hs-identifier hs-var">result</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830066"><span class="hs-identifier hs-var">us1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-326"></span><span>
+</span><span id="line-327"></span><span id="local-6989586621680830064"><span id="local-6989586621680830065"><span class="annot"><a href="GHC.Types.Unique.Supply.html#thenUs_"><span class="hs-identifier hs-type">thenUs_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830065"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830064"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830064"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-328"></span><span id="thenUs_"><span class="annot"><span class="annottext">thenUs_ :: forall a b. UniqSM a -&gt; UniqSM b -&gt; UniqSM b
+</span><a href="GHC.Types.Unique.Supply.html#thenUs_"><span class="hs-identifier hs-var hs-var">thenUs_</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-type">USM</span></a></span><span> </span><span id="local-6989586621680830063"><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult a
+</span><a href="#local-6989586621680830063"><span class="hs-identifier hs-var">expr</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-type">USM</span></a></span><span> </span><span id="local-6989586621680830062"><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult b
+</span><a href="#local-6989586621680830062"><span class="hs-identifier hs-var">cont</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-329"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; UniqResult b) -&gt; UniqSM b
+forall result. (UniqSupply -&gt; UniqResult result) -&gt; UniqSM result
+</span><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680830061"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830061"><span class="hs-identifier hs-var">us0</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult a
+</span><a href="#local-6989586621680830063"><span class="hs-identifier hs-var">expr</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830061"><span class="hs-identifier hs-var">us0</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-type">UniqResult</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680830060"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830060"><span class="hs-identifier hs-var">us1</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; UniqResult b
+</span><a href="#local-6989586621680830062"><span class="hs-identifier hs-var">cont</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830060"><span class="hs-identifier hs-var">us1</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-330"></span><span>
+</span><span id="line-331"></span><span id="local-6989586621680830059"><span class="annot"><a href="GHC.Types.Unique.Supply.html#returnUs"><span class="hs-identifier hs-type">returnUs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680830059"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830059"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-332"></span><span id="returnUs"><span class="annot"><span class="annottext">returnUs :: forall a. a -&gt; UniqSM a
+</span><a href="GHC.Types.Unique.Supply.html#returnUs"><span class="hs-identifier hs-var hs-var">returnUs</span></a></span></span><span> </span><span id="local-6989586621680830058"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830058"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; UniqResult a) -&gt; UniqSM a
+forall result. (UniqSupply -&gt; UniqResult result) -&gt; UniqSM result
+</span><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680830057"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830057"><span class="hs-identifier hs-var">us</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; UniqSupply -&gt; UniqResult a
+forall a b. a -&gt; b -&gt; (# a, b #)
+</span><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-var">UniqResult</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680830058"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830057"><span class="hs-identifier hs-var">us</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-333"></span><span>
+</span><span id="line-334"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#getUs"><span class="hs-identifier hs-type">getUs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span>
+</span><span id="line-335"></span><span id="getUs"><span class="annot"><span class="annottext">getUs :: UniqSM UniqSupply
+</span><a href="GHC.Types.Unique.Supply.html#getUs"><span class="hs-identifier hs-var hs-var">getUs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; UniqResult UniqSupply) -&gt; UniqSM UniqSupply
+forall result. (UniqSupply -&gt; UniqResult result) -&gt; UniqSM result
+</span><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680830055"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830055"><span class="hs-identifier hs-var">us0</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; (UniqSupply, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#splitUniqSupply"><span class="hs-identifier hs-var">splitUniqSupply</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830055"><span class="hs-identifier hs-var">us0</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680830054"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830054"><span class="hs-identifier hs-var">us1</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621680830053"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830053"><span class="hs-identifier hs-var">us2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; UniqSupply -&gt; UniqResult UniqSupply
+forall a b. a -&gt; b -&gt; (# a, b #)
+</span><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-var">UniqResult</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830054"><span class="hs-identifier hs-var">us1</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830053"><span class="hs-identifier hs-var">us2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-336"></span><span>
+</span><span id="line-337"></span><span class="hs-comment">-- | A monad for generating unique identifiers</span><span>
+</span><span id="line-338"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680830208"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="MonadUnique"><span class="annot"><a href="GHC.Types.Unique.Supply.html#MonadUnique"><span class="hs-identifier hs-var">MonadUnique</span></a></span></span><span> </span><span id="local-6989586621680830208"><span class="annot"><a href="#local-6989586621680830208"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-339"></span><span>    </span><span class="hs-comment">-- | Get a new UniqueSupply</span><span>
+</span><span id="line-340"></span><span>    </span><span id="getUniqueSupplyM"><span class="annot"><a href="GHC.Types.Unique.Supply.html#getUniqueSupplyM"><span class="hs-identifier hs-type">getUniqueSupplyM</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680830208"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span>
+</span><span id="line-341"></span><span>    </span><span class="hs-comment">-- | Get a new unique identifier</span><span>
+</span><span id="line-342"></span><span>    </span><span id="getUniqueM"><span class="annot"><a href="GHC.Types.Unique.Supply.html#getUniqueM"><span class="hs-identifier hs-type">getUniqueM</span></a></span></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680830208"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span>
+</span><span id="line-343"></span><span>    </span><span class="hs-comment">-- | Get an infinite list of new unique identifiers</span><span>
+</span><span id="line-344"></span><span>    </span><span id="getUniquesM"><span class="annot"><a href="GHC.Types.Unique.Supply.html#getUniquesM"><span class="hs-identifier hs-type">getUniquesM</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680830208"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-345"></span><span>
+</span><span id="line-346"></span><span>    </span><span class="hs-comment">-- This default definition of getUniqueM, while correct, is not as</span><span>
+</span><span id="line-347"></span><span>    </span><span class="hs-comment">-- efficient as it could be since it needlessly generates and throws away</span><span>
+</span><span id="line-348"></span><span>    </span><span class="hs-comment">-- an extra Unique. For your instances consider providing an explicit</span><span>
+</span><span id="line-349"></span><span>    </span><span class="hs-comment">-- definition for 'getUniqueM' which uses 'takeUniqFromSupply' directly.</span><span>
+</span><span id="line-350"></span><span>    </span><span id="local-6989586621680830047"><span class="annot"><a href="GHC.Types.Unique.Supply.html#getUniqueM"><span class="hs-identifier hs-var hs-var">getUniqueM</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; Unique) -&gt; m UniqSupply -&gt; m Unique
+forall (m :: * -&gt; *) a1 r. Monad m =&gt; (a1 -&gt; r) -&gt; m a1 -&gt; m r
+</span><a href="../../base/src/GHC.Base.html#liftM"><span class="hs-identifier hs-var">liftM</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; Unique
+</span><a href="GHC.Types.Unique.Supply.html#uniqFromSupply"><span class="hs-identifier hs-var">uniqFromSupply</span></a></span><span>  </span><span class="annot"><span class="annottext">m UniqSupply
+forall (m :: * -&gt; *). MonadUnique m =&gt; m UniqSupply
+</span><a href="GHC.Types.Unique.Supply.html#getUniqueSupplyM"><span class="hs-identifier hs-var">getUniqueSupplyM</span></a></span></span><span>
+</span><span id="line-351"></span><span>    </span><span id="local-6989586621680830042"><span class="annot"><a href="GHC.Types.Unique.Supply.html#getUniquesM"><span class="hs-identifier hs-var hs-var">getUniquesM</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; [Unique]) -&gt; m UniqSupply -&gt; m [Unique]
+forall (m :: * -&gt; *) a1 r. Monad m =&gt; (a1 -&gt; r) -&gt; m a1 -&gt; m r
+</span><a href="../../base/src/GHC.Base.html#liftM"><span class="hs-identifier hs-var">liftM</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; [Unique]
+</span><a href="GHC.Types.Unique.Supply.html#uniqsFromSupply"><span class="hs-identifier hs-var">uniqsFromSupply</span></a></span><span> </span><span class="annot"><span class="annottext">m UniqSupply
+forall (m :: * -&gt; *). MonadUnique m =&gt; m UniqSupply
+</span><a href="GHC.Types.Unique.Supply.html#getUniqueSupplyM"><span class="hs-identifier hs-var">getUniqueSupplyM</span></a></span></span><span>
+</span><span id="line-352"></span><span>
+</span><span id="line-353"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#MonadUnique"><span class="hs-identifier hs-type">MonadUnique</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-354"></span><span>    </span><span id="local-6989586621680830031"><span class="annot"><span class="annottext">getUniqueSupplyM :: UniqSM UniqSupply
+</span><a href="#local-6989586621680830031"><span class="hs-identifier hs-var hs-var hs-var hs-var">getUniqueSupplyM</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSM UniqSupply
+</span><a href="GHC.Types.Unique.Supply.html#getUs"><span class="hs-identifier hs-var">getUs</span></a></span><span>
+</span><span id="line-355"></span><span>    </span><span id="local-6989586621680830030"><span class="annot"><span class="annottext">getUniqueM :: UniqSM Unique
+</span><a href="#local-6989586621680830030"><span class="hs-identifier hs-var hs-var hs-var hs-var">getUniqueM</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSM Unique
+</span><a href="GHC.Types.Unique.Supply.html#getUniqueUs"><span class="hs-identifier hs-var">getUniqueUs</span></a></span><span>
+</span><span id="line-356"></span><span>    </span><span id="local-6989586621680830028"><span class="annot"><span class="annottext">getUniquesM :: UniqSM [Unique]
+</span><a href="#local-6989586621680830028"><span class="hs-identifier hs-var hs-var hs-var hs-var">getUniquesM</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSM [Unique]
+</span><a href="GHC.Types.Unique.Supply.html#getUniquesUs"><span class="hs-identifier hs-var">getUniquesUs</span></a></span><span>
+</span><span id="line-357"></span><span>
+</span><span id="line-358"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#getUniqueUs"><span class="hs-identifier hs-type">getUniqueUs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span>
+</span><span id="line-359"></span><span id="getUniqueUs"><span class="annot"><span class="annottext">getUniqueUs :: UniqSM Unique
+</span><a href="GHC.Types.Unique.Supply.html#getUniqueUs"><span class="hs-identifier hs-var hs-var">getUniqueUs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; UniqResult Unique) -&gt; UniqSM Unique
+forall result. (UniqSupply -&gt; UniqResult result) -&gt; UniqSM result
+</span><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680830026"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830026"><span class="hs-identifier hs-var">us0</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; (Unique, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#takeUniqFromSupply"><span class="hs-identifier hs-var">takeUniqFromSupply</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830026"><span class="hs-identifier hs-var">us0</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-360"></span><span>                           </span><span class="hs-special">(</span><span id="local-6989586621680830025"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621680830025"><span class="hs-identifier hs-var">u</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621680830024"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830024"><span class="hs-identifier hs-var">us1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Unique -&gt; UniqSupply -&gt; UniqResult Unique
+forall a b. a -&gt; b -&gt; (# a, b #)
+</span><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-var">UniqResult</span></a></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621680830025"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830024"><span class="hs-identifier hs-var">us1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-361"></span><span>
+</span><span id="line-362"></span><span class="annot"><a href="GHC.Types.Unique.Supply.html#getUniquesUs"><span class="hs-identifier hs-type">getUniquesUs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-363"></span><span id="getUniquesUs"><span class="annot"><span class="annottext">getUniquesUs :: UniqSM [Unique]
+</span><a href="GHC.Types.Unique.Supply.html#getUniquesUs"><span class="hs-identifier hs-var hs-var">getUniquesUs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; UniqResult [Unique]) -&gt; UniqSM [Unique]
+forall result. (UniqSupply -&gt; UniqResult result) -&gt; UniqSM result
+</span><a href="GHC.Types.Unique.Supply.html#USM"><span class="hs-identifier hs-var">USM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680830023"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830023"><span class="hs-identifier hs-var">us0</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; (UniqSupply, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#splitUniqSupply"><span class="hs-identifier hs-var">splitUniqSupply</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830023"><span class="hs-identifier hs-var">us0</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-364"></span><span>                            </span><span class="hs-special">(</span><span id="local-6989586621680830022"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830022"><span class="hs-identifier hs-var">us1</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621680830021"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830021"><span class="hs-identifier hs-var">us2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Unique] -&gt; UniqSupply -&gt; UniqResult [Unique]
+forall a b. a -&gt; b -&gt; (# a, b #)
+</span><a href="GHC.Types.Unique.Supply.html#UniqResult"><span class="hs-identifier hs-var">UniqResult</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UniqSupply -&gt; [Unique]
+</span><a href="GHC.Types.Unique.Supply.html#uniqsFromSupply"><span class="hs-identifier hs-var">uniqsFromSupply</span></a></span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830022"><span class="hs-identifier hs-var">us1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621680830021"><span class="hs-identifier hs-var">us2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-365"></span></pre></body></html>

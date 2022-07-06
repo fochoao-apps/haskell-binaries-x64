@@ -1,0 +1,273 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE Trustworthy #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE CPP, NoImplicitPrelude, MagicHash, UnboxedTuples #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_HADDOCK not-home #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Module      :  GHC.Conc.Windows</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Copyright   :  (c) The University of Glasgow, 1994-2002</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- License     :  see libraries/base/LICENSE</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Maintainer  :  cvs-ghc@haskell.org</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Stability   :  internal</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Portability :  non-portable (GHC extensions)</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Windows I/O manager interfaces. Depending on which I/O Subsystem is used</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- requests will be routed to different places.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-----------------------------------------------------------------------------</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- #not-home</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.Conc.Windows</span><span>
+</span><span id="line-22"></span><span>       </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#ensureIOManagerIsRunning"><span class="hs-identifier">ensureIOManagerIsRunning</span></a></span><span>
+</span><span id="line-23"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#interruptIOManager"><span class="hs-identifier">interruptIOManager</span></a></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span>       </span><span class="annot"><span class="hs-comment">-- * Waiting</span></span><span>
+</span><span id="line-26"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#threadDelay"><span class="hs-identifier">threadDelay</span></a></span><span>
+</span><span id="line-27"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#registerDelay"><span class="hs-identifier">registerDelay</span></a></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span>       </span><span class="annot"><span class="hs-comment">-- * Miscellaneous</span></span><span>
+</span><span id="line-30"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#asyncRead"><span class="hs-identifier">asyncRead</span></a></span><span>
+</span><span id="line-31"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#asyncWrite"><span class="hs-identifier">asyncWrite</span></a></span><span>
+</span><span id="line-32"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#asyncDoProc"><span class="hs-identifier">asyncDoProc</span></a></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#asyncReadBA"><span class="hs-identifier">asyncReadBA</span></a></span><span>
+</span><span id="line-35"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Conc.Windows.html#asyncWriteBA"><span class="hs-identifier">asyncWriteBA</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span>       </span><span class="annot"><span class="hs-comment">-- * Console event handler</span></span><span>
+</span><span id="line-38"></span><span>       </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="GHC.Event.Windows.ConsoleEvent.html"><span class="hs-identifier">GHC.Event.Windows.ConsoleEvent</span></a></span><span>
+</span><span id="line-39"></span><span>       </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span class="hs-cpp">
+
+
+#include &quot;windows_cconv.h&quot;
+</span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Base.html"><span class="hs-identifier">GHC.Base</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Conc.Sync.html"><span class="hs-identifier">GHC.Conc.Sync</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="GHC.Conc.POSIX.html"><span class="hs-identifier">GHC.Conc.POSIX</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">POSIX</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="GHC.Conc.WinIO.html"><span class="hs-identifier">GHC.Conc.WinIO</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">WINIO</span></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Event.Windows.ConsoleEvent.html"><span class="hs-identifier">GHC.Event.Windows.ConsoleEvent</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.IO.SubSystem.html"><span class="hs-identifier">GHC.IO.SubSystem</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.IO.SubSystem.html#%3C%21%3E"><span class="hs-operator">(&lt;!&gt;)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Ptr.html"><span class="hs-identifier">GHC.Ptr</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Unsafe.Coerce.html"><span class="hs-identifier">Unsafe.Coerce</span></a></span><span> </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Unsafe.Coerce.html#unsafeCoerceUnlifted"><span class="hs-identifier">unsafeCoerceUnlifted</span></a></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- ----------------------------------------------------------------------------</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- Thread waiting</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- Note: threadWaitRead and threadWaitWrite aren't really functional</span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- on Win32, but left in there because lib code (still) uses them (the manner</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- in which they're used doesn't cause problems on a Win32 platform though.)</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span id="local-6989586621679553825"><span class="annot"><a href="GHC.Conc.Windows.html#asyncRead"><span class="hs-identifier hs-type">asyncRead</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-type">Ptr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679553825"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-61"></span><span id="asyncRead"><span class="annot"><span class="annottext">asyncRead :: forall a. Int -&gt; Int -&gt; Int -&gt; Ptr a -&gt; IO (Int, Int)
+</span><a href="GHC.Conc.Windows.html#asyncRead"><span class="hs-identifier hs-var hs-var">asyncRead</span></a></span></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-type">I#</span></a></span><span> </span><span id="local-6989586621679553798"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553798"><span class="hs-identifier hs-var">fd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-type">I#</span></a></span><span> </span><span id="local-6989586621679553797"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553797"><span class="hs-identifier hs-var">isSock</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-type">I#</span></a></span><span> </span><span id="local-6989586621679553796"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553796"><span class="hs-identifier hs-var">len</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-type">Ptr</span></a></span><span> </span><span id="local-6989586621679553794"><span class="annot"><span class="annottext">Addr#
+</span><a href="#local-6989586621679553794"><span class="hs-identifier hs-var">buf</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><span class="annottext">(State# RealWorld -&gt; (# State# RealWorld, (Int, Int) #))
+-&gt; IO (Int, Int)
+forall a. (State# RealWorld -&gt; (# State# RealWorld, a #)) -&gt; IO a
+</span><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-var">IO</span></a></span><span> </span><span class="annot"><span class="annottext">((State# RealWorld -&gt; (# State# RealWorld, (Int, Int) #))
+ -&gt; IO (Int, Int))
+-&gt; (State# RealWorld -&gt; (# State# RealWorld, (Int, Int) #))
+-&gt; IO (Int, Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679553793"><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553793"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Int#
+-&gt; Int#
+-&gt; Int#
+-&gt; Addr#
+-&gt; State# RealWorld
+-&gt; (# State# RealWorld, Int#, Int# #)
+</span><a href="../../ghc-prim/src/GHC.Prim.Ext.html#asyncRead%23"><span class="hs-identifier hs-var">asyncRead#</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553798"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553797"><span class="hs-identifier hs-var">isSock</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553796"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="annot"><span class="annottext">Addr#
+</span><a href="#local-6989586621679553794"><span class="hs-identifier hs-var">buf</span></a></span><span> </span><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553793"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-63"></span><span>               </span><span class="hs-special">(#</span><span> </span><span id="local-6989586621679553791"><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553791"><span class="hs-identifier hs-var">s'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679553790"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553790"><span class="hs-identifier hs-var">len#</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679553789"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553789"><span class="hs-identifier hs-var">err#</span></a></span></span><span> </span><span class="hs-special">#)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(#</span><span> </span><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553791"><span class="hs-identifier hs-var">s'</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int# -&gt; Int
+</span><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-var">I#</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553790"><span class="hs-identifier hs-var">len#</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int# -&gt; Int
+</span><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-var">I#</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553789"><span class="hs-identifier hs-var">err#</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">#)</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span id="local-6989586621679553788"><span class="annot"><a href="GHC.Conc.Windows.html#asyncWrite"><span class="hs-identifier hs-type">asyncWrite</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-type">Ptr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679553788"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-66"></span><span id="asyncWrite"><span class="annot"><span class="annottext">asyncWrite :: forall a. Int -&gt; Int -&gt; Int -&gt; Ptr a -&gt; IO (Int, Int)
+</span><a href="GHC.Conc.Windows.html#asyncWrite"><span class="hs-identifier hs-var hs-var">asyncWrite</span></a></span></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-type">I#</span></a></span><span> </span><span id="local-6989586621679553787"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553787"><span class="hs-identifier hs-var">fd</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-type">I#</span></a></span><span> </span><span id="local-6989586621679553786"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553786"><span class="hs-identifier hs-var">isSock</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-type">I#</span></a></span><span> </span><span id="local-6989586621679553785"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553785"><span class="hs-identifier hs-var">len</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-type">Ptr</span></a></span><span> </span><span id="local-6989586621679553784"><span class="annot"><span class="annottext">Addr#
+</span><a href="#local-6989586621679553784"><span class="hs-identifier hs-var">buf</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><span class="annottext">(State# RealWorld -&gt; (# State# RealWorld, (Int, Int) #))
+-&gt; IO (Int, Int)
+forall a. (State# RealWorld -&gt; (# State# RealWorld, a #)) -&gt; IO a
+</span><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-var">IO</span></a></span><span> </span><span class="annot"><span class="annottext">((State# RealWorld -&gt; (# State# RealWorld, (Int, Int) #))
+ -&gt; IO (Int, Int))
+-&gt; (State# RealWorld -&gt; (# State# RealWorld, (Int, Int) #))
+-&gt; IO (Int, Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679553783"><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553783"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Int#
+-&gt; Int#
+-&gt; Int#
+-&gt; Addr#
+-&gt; State# RealWorld
+-&gt; (# State# RealWorld, Int#, Int# #)
+</span><a href="../../ghc-prim/src/GHC.Prim.Ext.html#asyncWrite%23"><span class="hs-identifier hs-var">asyncWrite#</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553787"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553786"><span class="hs-identifier hs-var">isSock</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553785"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="annot"><span class="annottext">Addr#
+</span><a href="#local-6989586621679553784"><span class="hs-identifier hs-var">buf</span></a></span><span> </span><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553783"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-68"></span><span>               </span><span class="hs-special">(#</span><span> </span><span id="local-6989586621679553781"><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553781"><span class="hs-identifier hs-var">s'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679553780"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553780"><span class="hs-identifier hs-var">len#</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679553779"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553779"><span class="hs-identifier hs-var">err#</span></a></span></span><span> </span><span class="hs-special">#)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(#</span><span> </span><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553781"><span class="hs-identifier hs-var">s'</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int# -&gt; Int
+</span><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-var">I#</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553780"><span class="hs-identifier hs-var">len#</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int# -&gt; Int
+</span><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-var">I#</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553779"><span class="hs-identifier hs-var">err#</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">#)</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span id="local-6989586621679553818"><span class="annot"><a href="GHC.Conc.Windows.html#asyncDoProc"><span class="hs-identifier hs-type">asyncDoProc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Ptr.html#FunPtr"><span class="hs-identifier hs-type">FunPtr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-type">Ptr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679553818"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-type">Ptr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679553818"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span></span><span>
+</span><span id="line-71"></span><span id="asyncDoProc"><span class="annot"><span class="annottext">asyncDoProc :: forall a. FunPtr (Ptr a -&gt; IO Int) -&gt; Ptr a -&gt; IO Int
+</span><a href="GHC.Conc.Windows.html#asyncDoProc"><span class="hs-identifier hs-var hs-var">asyncDoProc</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Ptr.html#FunPtr"><span class="hs-identifier hs-type">FunPtr</span></a></span><span> </span><span id="local-6989586621679553777"><span class="annot"><span class="annottext">Addr#
+</span><a href="#local-6989586621679553777"><span class="hs-identifier hs-var">proc</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-type">Ptr</span></a></span><span> </span><span id="local-6989586621679553776"><span class="annot"><span class="annottext">Addr#
+</span><a href="#local-6989586621679553776"><span class="hs-identifier hs-var">param</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-comment">-- the 'length' value is ignored; simplifies implementation of</span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-comment">-- the async*# primops to have them all return the same result.</span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><span class="annottext">(State# RealWorld -&gt; (# State# RealWorld, Int #)) -&gt; IO Int
+forall a. (State# RealWorld -&gt; (# State# RealWorld, a #)) -&gt; IO a
+</span><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-var">IO</span></a></span><span> </span><span class="annot"><span class="annottext">((State# RealWorld -&gt; (# State# RealWorld, Int #)) -&gt; IO Int)
+-&gt; (State# RealWorld -&gt; (# State# RealWorld, Int #)) -&gt; IO Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679553775"><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553775"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Addr#
+-&gt; Addr# -&gt; State# RealWorld -&gt; (# State# RealWorld, Int#, Int# #)
+</span><a href="../../ghc-prim/src/GHC.Prim.Ext.html#asyncDoProc%23"><span class="hs-identifier hs-var">asyncDoProc#</span></a></span><span> </span><span class="annot"><span class="annottext">Addr#
+</span><a href="#local-6989586621679553777"><span class="hs-identifier hs-var">proc</span></a></span><span> </span><span class="annot"><span class="annottext">Addr#
+</span><a href="#local-6989586621679553776"><span class="hs-identifier hs-var">param</span></a></span><span> </span><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553775"><span class="hs-identifier hs-var">s</span></a></span><span>  </span><span class="hs-keyword">of</span><span>
+</span><span id="line-75"></span><span>               </span><span class="hs-special">(#</span><span> </span><span id="local-6989586621679553773"><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553773"><span class="hs-identifier hs-var">s'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679553772"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553772"><span class="hs-identifier hs-var">_len#</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679553771"><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553771"><span class="hs-identifier hs-var">err#</span></a></span></span><span> </span><span class="hs-special">#)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(#</span><span> </span><span class="annot"><span class="annottext">State# RealWorld
+</span><a href="#local-6989586621679553773"><span class="hs-identifier hs-var">s'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int# -&gt; Int
+</span><a href="../../ghc-prim/src/GHC.Types.html#I%23"><span class="hs-identifier hs-var">I#</span></a></span><span> </span><span class="annot"><span class="annottext">Int#
+</span><a href="#local-6989586621679553771"><span class="hs-identifier hs-var">err#</span></a></span><span> </span><span class="hs-special">#)</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- to aid the use of these primops by the IO Handle implementation,</span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- provide the following convenience funs:</span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- this better be a pinned byte array!</span><span>
+</span><span id="line-81"></span><span class="annot"><a href="GHC.Conc.Windows.html#asyncReadBA"><span class="hs-identifier hs-type">asyncReadBA</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Prim.html#MutableByteArray%23"><span class="hs-identifier hs-type">MutableByteArray#</span></a></span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Prim.html#RealWorld"><span class="hs-identifier hs-type">RealWorld</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">,</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span id="asyncReadBA"><span class="annot"><span class="annottext">asyncReadBA :: Int
+-&gt; Int
+-&gt; Int
+-&gt; Int
+-&gt; MutableByteArray# RealWorld
+-&gt; IO (Int, Int)
+</span><a href="GHC.Conc.Windows.html#asyncReadBA"><span class="hs-identifier hs-var hs-var">asyncReadBA</span></a></span></span><span> </span><span id="local-6989586621679553770"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553770"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span id="local-6989586621679553769"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553769"><span class="hs-identifier hs-var">isSock</span></a></span></span><span> </span><span id="local-6989586621679553768"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553768"><span class="hs-identifier hs-var">len</span></a></span></span><span> </span><span id="local-6989586621679553767"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553767"><span class="hs-identifier hs-var">off</span></a></span></span><span> </span><span id="local-6989586621679553766"><span class="annot"><span class="annottext">MutableByteArray# RealWorld
+</span><a href="#local-6989586621679553766"><span class="hs-identifier hs-var">bufB</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-83"></span><span>  </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; Ptr Any -&gt; IO (Int, Int)
+forall a. Int -&gt; Int -&gt; Int -&gt; Ptr a -&gt; IO (Int, Int)
+</span><a href="GHC.Conc.Windows.html#asyncRead"><span class="hs-identifier hs-var">asyncRead</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553770"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553769"><span class="hs-identifier hs-var">isSock</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553768"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Addr# -&gt; Ptr Any
+forall a. Addr# -&gt; Ptr a
+</span><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-var">Ptr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteArray# -&gt; Addr#
+</span><a href="../../ghc-prim/src/GHC.Prim.html#byteArrayContents%23"><span class="hs-identifier hs-var">byteArrayContents#</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MutableByteArray# RealWorld -&gt; ByteArray#
+forall (a :: TYPE 'UnliftedRep) (b :: TYPE 'UnliftedRep). a -&gt; b
+</span><a href="Unsafe.Coerce.html#unsafeCoerceUnlifted"><span class="hs-identifier hs-var">unsafeCoerceUnlifted</span></a></span><span> </span><span class="annot"><span class="annottext">MutableByteArray# RealWorld
+</span><a href="#local-6989586621679553766"><span class="hs-identifier hs-var">bufB</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Ptr Any -&gt; Int -&gt; Ptr Any
+forall a b. Ptr a -&gt; Int -&gt; Ptr b
+</span><a href="GHC.Ptr.html#plusPtr"><span class="hs-operator hs-var">`plusPtr`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553767"><span class="hs-identifier hs-var">off</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="annot"><a href="GHC.Conc.Windows.html#asyncWriteBA"><span class="hs-identifier hs-type">asyncWriteBA</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Prim.html#MutableByteArray%23"><span class="hs-identifier hs-type">MutableByteArray#</span></a></span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Prim.html#RealWorld"><span class="hs-identifier hs-type">RealWorld</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">,</span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span id="asyncWriteBA"><span class="annot"><span class="annottext">asyncWriteBA :: Int
+-&gt; Int
+-&gt; Int
+-&gt; Int
+-&gt; MutableByteArray# RealWorld
+-&gt; IO (Int, Int)
+</span><a href="GHC.Conc.Windows.html#asyncWriteBA"><span class="hs-identifier hs-var hs-var">asyncWriteBA</span></a></span></span><span> </span><span id="local-6989586621679553764"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553764"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span id="local-6989586621679553763"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553763"><span class="hs-identifier hs-var">isSock</span></a></span></span><span> </span><span id="local-6989586621679553762"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553762"><span class="hs-identifier hs-var">len</span></a></span></span><span> </span><span id="local-6989586621679553761"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553761"><span class="hs-identifier hs-var">off</span></a></span></span><span> </span><span id="local-6989586621679553760"><span class="annot"><span class="annottext">MutableByteArray# RealWorld
+</span><a href="#local-6989586621679553760"><span class="hs-identifier hs-var">bufB</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; Ptr Any -&gt; IO (Int, Int)
+forall a. Int -&gt; Int -&gt; Int -&gt; Ptr a -&gt; IO (Int, Int)
+</span><a href="GHC.Conc.Windows.html#asyncWrite"><span class="hs-identifier hs-var">asyncWrite</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553764"><span class="hs-identifier hs-var">fd</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553763"><span class="hs-identifier hs-var">isSock</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553762"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Addr# -&gt; Ptr Any
+forall a. Addr# -&gt; Ptr a
+</span><a href="GHC.Ptr.html#Ptr"><span class="hs-identifier hs-var">Ptr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteArray# -&gt; Addr#
+</span><a href="../../ghc-prim/src/GHC.Prim.html#byteArrayContents%23"><span class="hs-identifier hs-var">byteArrayContents#</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MutableByteArray# RealWorld -&gt; ByteArray#
+forall (a :: TYPE 'UnliftedRep) (b :: TYPE 'UnliftedRep). a -&gt; b
+</span><a href="Unsafe.Coerce.html#unsafeCoerceUnlifted"><span class="hs-identifier hs-var">unsafeCoerceUnlifted</span></a></span><span> </span><span class="annot"><span class="annottext">MutableByteArray# RealWorld
+</span><a href="#local-6989586621679553760"><span class="hs-identifier hs-var">bufB</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Ptr Any -&gt; Int -&gt; Ptr Any
+forall a b. Ptr a -&gt; Int -&gt; Ptr b
+</span><a href="GHC.Ptr.html#plusPtr"><span class="hs-operator hs-var">`plusPtr`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679553761"><span class="hs-identifier hs-var">off</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- ----------------------------------------------------------------------------</span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- Threaded RTS implementation of threadDelay</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- | Suspends the current thread for a given number of microseconds</span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- (GHC only).</span><span>
+</span><span id="line-94"></span><span class="hs-comment">--</span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- There is no guarantee that the thread will be rescheduled promptly</span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- when the delay has expired, but the thread will never continue to</span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- run /earlier/ than specified.</span><span>
+</span><span id="line-98"></span><span class="hs-comment">--</span><span>
+</span><span id="line-99"></span><span class="annot"><a href="GHC.Conc.Windows.html#threadDelay"><span class="hs-identifier hs-type">threadDelay</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span id="threadDelay"><span class="annot"><span class="annottext">threadDelay :: Int -&gt; IO ()
+</span><a href="GHC.Conc.Windows.html#threadDelay"><span class="hs-identifier hs-var hs-var">threadDelay</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><a href="GHC.Conc.POSIX.html#threadDelay"><span class="hs-identifier hs-var">POSIX.threadDelay</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; IO ()) -&gt; (Int -&gt; IO ()) -&gt; Int -&gt; IO ()
+forall a. a -&gt; a -&gt; a
+</span><a href="GHC.IO.SubSystem.html#%3C%21%3E"><span class="hs-operator hs-var">&lt;!&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><a href="GHC.Event.Windows.Thread.html#threadDelay"><span class="hs-identifier hs-var">WINIO.threadDelay</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- | Set the value of returned TVar to True after a given number of</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- microseconds. The caveats associated with threadDelay also apply.</span><span>
+</span><span id="line-104"></span><span class="hs-comment">--</span><span>
+</span><span id="line-105"></span><span class="annot"><a href="GHC.Conc.Windows.html#registerDelay"><span class="hs-identifier hs-type">registerDelay</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Conc.Sync.html#TVar"><span class="hs-identifier hs-type">TVar</span></a></span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span id="registerDelay"><span class="annot"><span class="annottext">registerDelay :: Int -&gt; IO (TVar Bool)
+</span><a href="GHC.Conc.Windows.html#registerDelay"><span class="hs-identifier hs-var hs-var">registerDelay</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (TVar Bool)
+</span><a href="GHC.Conc.POSIX.html#registerDelay"><span class="hs-identifier hs-var">POSIX.registerDelay</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; IO (TVar Bool))
+-&gt; (Int -&gt; IO (TVar Bool)) -&gt; Int -&gt; IO (TVar Bool)
+forall a. a -&gt; a -&gt; a
+</span><a href="GHC.IO.SubSystem.html#%3C%21%3E"><span class="hs-operator hs-var">&lt;!&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (TVar Bool)
+</span><a href="GHC.Event.Windows.Thread.html#registerDelay"><span class="hs-identifier hs-var">WINIO.registerDelay</span></a></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="annot"><a href="GHC.Conc.Windows.html#ensureIOManagerIsRunning"><span class="hs-identifier hs-type">ensureIOManagerIsRunning</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span id="ensureIOManagerIsRunning"><span class="annot"><span class="annottext">ensureIOManagerIsRunning :: IO ()
+</span><a href="GHC.Conc.Windows.html#ensureIOManagerIsRunning"><span class="hs-identifier hs-var hs-var">ensureIOManagerIsRunning</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="annottext">IO ()
+</span><a href="GHC.Conc.POSIX.html#ensureIOManagerIsRunning"><span class="hs-identifier hs-var">POSIX.ensureIOManagerIsRunning</span></a></span><span>
+</span><span id="line-110"></span><span>                        </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall a. a -&gt; a -&gt; a
+</span><a href="GHC.IO.SubSystem.html#%3C%21%3E"><span class="hs-operator hs-var">&lt;!&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="GHC.Event.Windows.Thread.html#ensureIOManagerIsRunning"><span class="hs-identifier hs-var">WINIO.ensureIOManagerIsRunning</span></a></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="annot"><a href="GHC.Conc.Windows.html#interruptIOManager"><span class="hs-identifier hs-type">interruptIOManager</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-prim/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span id="interruptIOManager"><span class="annot"><span class="annottext">interruptIOManager :: IO ()
+</span><a href="GHC.Conc.Windows.html#interruptIOManager"><span class="hs-identifier hs-var hs-var">interruptIOManager</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="GHC.Conc.POSIX.html#interruptIOManager"><span class="hs-identifier hs-var">POSIX.interruptIOManager</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall a. a -&gt; a -&gt; a
+</span><a href="GHC.IO.SubSystem.html#%3C%21%3E"><span class="hs-operator hs-var">&lt;!&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="GHC.Event.Windows.Thread.html#interruptIOManager"><span class="hs-identifier hs-var">WINIO.interruptIOManager</span></a></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span></pre></body></html>

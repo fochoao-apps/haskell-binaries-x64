@@ -1,0 +1,495 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679090920"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">System.Console.Haskeline.Backend.Win32.Echo</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hWithoutInputEcho"><span class="hs-identifier">hWithoutInputEcho</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Control.Exception.html#"><span class="hs-identifier">Control.Exception</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Exception.html#throw"><span class="hs-identifier">throw</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.html#"><span class="hs-identifier">Control.Monad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/Data.Functor.html#void"><span class="hs-identifier">void</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../exceptions/src/Control.Monad.Catch.html#"><span class="hs-identifier">Control.Monad.Catch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../exceptions/src/Control.Monad.Catch.html#MonadMask"><span class="hs-identifier">MonadMask</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../exceptions/src/Control.Monad.Catch.html#bracket"><span class="hs-identifier">bracket</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#"><span class="hs-identifier">Control.Monad.IO.Class</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier">MonadIO</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/System.Exit.html#"><span class="hs-identifier">System.Exit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.IO.Exception.html#ExitCode"><span class="hs-identifier">ExitCode</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/System.IO.html#"><span class="hs-identifier">System.IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier">Handle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Text.html#hGetContents"><span class="hs-identifier">hGetContents</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.html#hGetEcho"><span class="hs-identifier">hGetEcho</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.html#hSetEcho"><span class="hs-identifier">hSetEcho</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../process/src/System.Process.html#"><span class="hs-identifier">System.Process</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../process/src/System.Process.Common.html#StdStream"><span class="hs-identifier">StdStream</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../process/src/System.Process.html#createProcess"><span class="hs-identifier">createProcess</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../process/src/System.Process.html#shell"><span class="hs-identifier">shell</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>                       </span><span class="annot"><a href="../../process/src/System.Process.Common.html#std_in"><span class="hs-identifier">std_in</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../process/src/System.Process.Common.html#std_out"><span class="hs-identifier">std_out</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../process/src/System.Process.html#waitForProcess"><span class="hs-identifier">waitForProcess</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+
+#if MIN_VERSION_Win32(2,5,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Control.Concurrent.MVar.html#"><span class="hs-identifier">Control.Concurrent.MVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.MVar.html#readMVar"><span class="hs-identifier">readMVar</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Data.Typeable.html#"><span class="hs-identifier">Data.Typeable</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/Data.Typeable.html#cast"><span class="hs-identifier">cast</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Foreign.C.Types.html#"><span class="hs-identifier">Foreign.C.Types</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Foreign.StablePtr.html#"><span class="hs-identifier">Foreign.StablePtr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Stable.html#StablePtr"><span class="hs-identifier">StablePtr</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../base/src/GHC.Stable.html#freeStablePtr"><span class="hs-identifier">freeStablePtr</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../base/src/GHC.Stable.html#newStablePtr"><span class="hs-identifier">newStablePtr</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.FD.html#"><span class="hs-identifier">GHC.IO.FD</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.IO.FD.html#FD"><span class="hs-identifier">FD</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#if defined(__IO_MANAGER_WINIO__)
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Windows.html#"><span class="hs-identifier">GHC.IO.Handle.Windows</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Windows.html#handleToHANDLE"><span class="hs-identifier">handleToHANDLE</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.SubSystem.html#"><span class="hs-identifier">GHC.IO.SubSystem</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.IO.SubSystem.html#%3C%21%3E"><span class="hs-operator">(&lt;!&gt;)</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#"><span class="hs-identifier">GHC.IO.Handle.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier">Handle</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle__"><span class="hs-identifier">Handle__</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../Win32/src/System.Win32.Types.html#"><span class="hs-identifier">System.Win32.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../Win32/src/System.Win32.Types.html#HANDLE"><span class="hs-identifier">HANDLE</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../Win32/src/System.Win32.MinTTY.html#"><span class="hs-identifier">System.Win32.MinTTY</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../Win32/src/System.Win32.MinTTY.html#isMinTTYHandle"><span class="hs-identifier">isMinTTYHandle</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- | Return the handle's current input 'EchoState'.</span><span>
+</span><span id="line-35"></span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hGetInputEchoState"><span class="hs-identifier hs-type">hGetInputEchoState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#EchoState"><span class="hs-identifier hs-type">EchoState</span></a></span><span>
+</span><span id="line-36"></span><span id="hGetInputEchoState"><span class="annot"><span class="annottext">hGetInputEchoState :: Handle -&gt; IO EchoState
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hGetInputEchoState"><span class="hs-identifier hs-var hs-var">hGetInputEchoState</span></a></span></span><span> </span><span id="local-6989586621679090887"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090887"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621679090886"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679090886"><span class="hs-identifier hs-var">min_tty</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO Bool
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#minTTY"><span class="hs-identifier hs-var">minTTY</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090887"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679090886"><span class="hs-identifier hs-var">min_tty</span></a></span><span>
+</span><span id="line-39"></span><span>     </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">(STTYSettings -&gt; EchoState) -&gt; IO STTYSettings -&gt; IO EchoState
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="../../base/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings -&gt; EchoState
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#MinTTY"><span class="hs-identifier hs-var">MinTTY</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Handle -&gt; IO STTYSettings
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hGetInputEchoSTTY"><span class="hs-identifier hs-var">hGetInputEchoSTTY</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090887"><span class="hs-identifier hs-var">input</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>     </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; EchoState) -&gt; IO Bool -&gt; IO EchoState
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="../../base/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; EchoState
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#DefaultTTY"><span class="hs-identifier hs-var">DefaultTTY</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; IO EchoState) -&gt; IO Bool -&gt; IO EchoState
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO Bool
+</span><a href="../../base/src/GHC.IO.Handle.html#hGetEcho"><span class="hs-identifier hs-var">hGetEcho</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090887"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- | Return all of @stty@'s current settings in a non-human-readable format.</span><span>
+</span><span id="line-43"></span><span class="hs-comment">--</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- This function is not very useful on its own. Its greater purpose is to</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- provide a compact 'STTYSettings' that can be fed back into</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- 'hSetInputEchoState'.</span><span>
+</span><span id="line-47"></span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hGetInputEchoSTTY"><span class="hs-identifier hs-type">hGetInputEchoSTTY</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#STTYSettings"><span class="hs-identifier hs-type">STTYSettings</span></a></span><span>
+</span><span id="line-48"></span><span id="hGetInputEchoSTTY"><span class="annot"><span class="annottext">hGetInputEchoSTTY :: Handle -&gt; IO STTYSettings
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hGetInputEchoSTTY"><span class="hs-identifier hs-var hs-var">hGetInputEchoSTTY</span></a></span></span><span> </span><span id="local-6989586621679090881"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090881"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; STTYSettings -&gt; IO STTYSettings
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSttyRaw"><span class="hs-identifier hs-var">hSttyRaw</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090881"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings
+</span><span class="hs-string">&quot;-g&quot;</span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- | Set the handle's input 'EchoState'.</span><span>
+</span><span id="line-51"></span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSetInputEchoState"><span class="hs-identifier hs-type">hSetInputEchoState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#EchoState"><span class="hs-identifier hs-type">EchoState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span id="hSetInputEchoState"><span class="annot"><span class="annottext">hSetInputEchoState :: Handle -&gt; EchoState -&gt; IO ()
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSetInputEchoState"><span class="hs-identifier hs-var hs-var">hSetInputEchoState</span></a></span></span><span> </span><span id="local-6989586621679090878"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090878"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#MinTTY"><span class="hs-identifier hs-type">MinTTY</span></a></span><span> </span><span id="local-6989586621679090877"><span class="annot"><span class="annottext">STTYSettings
+</span><a href="#local-6989586621679090877"><span class="hs-identifier hs-var">settings</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; STTYSettings -&gt; IO ()
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSetInputEchoSTTY"><span class="hs-identifier hs-var">hSetInputEchoSTTY</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090878"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings
+</span><a href="#local-6989586621679090877"><span class="hs-identifier hs-var">settings</span></a></span><span>
+</span><span id="line-53"></span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSetInputEchoState"><span class="hs-identifier hs-var">hSetInputEchoState</span></a></span><span> </span><span id="local-6989586621679090875"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090875"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#DefaultTTY"><span class="hs-identifier hs-type">DefaultTTY</span></a></span><span> </span><span id="local-6989586621679090874"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679090874"><span class="hs-identifier hs-var">echo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; Bool -&gt; IO ()
+</span><a href="../../base/src/GHC.IO.Handle.html#hSetEcho"><span class="hs-identifier hs-var">hSetEcho</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090875"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679090874"><span class="hs-identifier hs-var">echo</span></a></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- | Create an @stty@ process and wait for it to complete. This is useful for</span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- changing @stty@'s settings, after which @stty@ does not output anything.</span><span>
+</span><span id="line-57"></span><span class="hs-comment">--</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- hSetInputEchoSTTY input = 'void' . 'hSttyRaw' input</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-61"></span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSetInputEchoSTTY"><span class="hs-identifier hs-type">hSetInputEchoSTTY</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#STTYSettings"><span class="hs-identifier hs-type">STTYSettings</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span id="hSetInputEchoSTTY"><span class="annot"><span class="annottext">hSetInputEchoSTTY :: Handle -&gt; STTYSettings -&gt; IO ()
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSetInputEchoSTTY"><span class="hs-identifier hs-var hs-var">hSetInputEchoSTTY</span></a></span></span><span> </span><span id="local-6989586621679090873"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090873"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO STTYSettings -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="../../base/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO STTYSettings -&gt; IO ())
+-&gt; (STTYSettings -&gt; IO STTYSettings) -&gt; STTYSettings -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; STTYSettings -&gt; IO STTYSettings
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSttyRaw"><span class="hs-identifier hs-var">hSttyRaw</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090873"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- | Save the handle's current input 'EchoState', perform a computation,</span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- restore the saved 'EchoState', and then return the result of the</span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- computation.</span><span>
+</span><span id="line-67"></span><span class="hs-comment">--</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- bracketInputEcho input action =</span><span>
+</span><span id="line-70"></span><span class="hs-comment">--  'bracket' ('liftIO' $ 'hGetInputEchoState' input)</span><span>
+</span><span id="line-71"></span><span class="hs-comment">--            ('liftIO' . 'hSetInputEchoState' input)</span><span>
+</span><span id="line-72"></span><span class="hs-comment">--            (const action)</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-74"></span><span id="local-6989586621679090983"><span id="local-6989586621679090986"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hBracketInputEcho"><span class="hs-identifier hs-type">hBracketInputEcho</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090986"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../exceptions/src/Control.Monad.Catch.html#MonadMask"><span class="hs-identifier hs-type">MonadMask</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090986"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679090986"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090983"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679090986"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090983"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-75"></span><span id="hBracketInputEcho"><span class="annot"><span class="annottext">hBracketInputEcho :: forall (m :: * -&gt; *) a.
+(MonadIO m, MonadMask m) =&gt;
+Handle -&gt; m a -&gt; m a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hBracketInputEcho"><span class="hs-identifier hs-var hs-var">hBracketInputEcho</span></a></span></span><span> </span><span id="local-6989586621679090865"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090865"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span id="local-6989586621679090864"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679090864"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><span class="annottext">m EchoState -&gt; (EchoState -&gt; m ()) -&gt; (EchoState -&gt; m a) -&gt; m a
+forall (m :: * -&gt; *) a c b.
+MonadMask m =&gt;
+m a -&gt; (a -&gt; m c) -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="../../exceptions/src/Control.Monad.Catch.html#bracket"><span class="hs-identifier hs-var">bracket</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO EchoState -&gt; m EchoState
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO EchoState -&gt; m EchoState) -&gt; IO EchoState -&gt; m EchoState
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO EchoState
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hGetInputEchoState"><span class="hs-identifier hs-var">hGetInputEchoState</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090865"><span class="hs-identifier hs-var">input</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; (EchoState -&gt; IO ()) -&gt; EchoState -&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; EchoState -&gt; IO ()
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSetInputEchoState"><span class="hs-identifier hs-var">hSetInputEchoState</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090865"><span class="hs-identifier hs-var">input</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">m a -&gt; EchoState -&gt; m a
+forall a b. a -&gt; b -&gt; a
+</span><a href="../../base/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679090864"><span class="hs-identifier hs-var">action</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- | Perform a computation with the handle's input echoing disabled. Before</span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- running the computation, the handle's input 'EchoState' is saved, and the</span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- saved 'EchoState' is restored after the computation finishes.</span><span>
+</span><span id="line-83"></span><span id="local-6989586621679090860"><span id="local-6989586621679090861"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hWithoutInputEcho"><span class="hs-identifier hs-type">hWithoutInputEcho</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090861"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="../../exceptions/src/Control.Monad.Catch.html#MonadMask"><span class="hs-identifier hs-type">MonadMask</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090861"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679090861"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090860"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679090861"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090860"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-84"></span><span id="hWithoutInputEcho"><span class="annot"><span class="annottext">hWithoutInputEcho :: forall (m :: * -&gt; *) a.
+(MonadIO m, MonadMask m) =&gt;
+Handle -&gt; m a -&gt; m a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hWithoutInputEcho"><span class="hs-identifier hs-var hs-var">hWithoutInputEcho</span></a></span></span><span> </span><span id="local-6989586621679090849"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090849"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span id="local-6989586621679090848"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679090848"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621679090847"><span class="annot"><span class="annottext">EchoState
+</span><a href="#local-6989586621679090847"><span class="hs-identifier hs-var">echo_off</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO EchoState -&gt; m EchoState
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO EchoState -&gt; m EchoState) -&gt; IO EchoState -&gt; m EchoState
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO EchoState
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hEchoOff"><span class="hs-identifier hs-var">hEchoOff</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090849"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="annottext">Handle -&gt; m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadIO m, MonadMask m) =&gt;
+Handle -&gt; m a -&gt; m a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hBracketInputEcho"><span class="hs-identifier hs-var">hBracketInputEcho</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090849"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-87"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Handle -&gt; EchoState -&gt; IO ()
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSetInputEchoState"><span class="hs-identifier hs-var">hSetInputEchoState</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090849"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">EchoState
+</span><a href="#local-6989586621679090847"><span class="hs-identifier hs-var">echo_off</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m () -&gt; m a -&gt; m a
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679090848"><span class="hs-identifier hs-var">action</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- | Create an @stty@ process, wait for it to complete, and return its output.</span><span>
+</span><span id="line-90"></span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSttyRaw"><span class="hs-identifier hs-type">hSttyRaw</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#STTYSettings"><span class="hs-identifier hs-type">STTYSettings</span></a></span><span>
+</span><span id="line-91"></span><span id="hSttyRaw"><span class="annot"><span class="annottext">hSttyRaw :: Handle -&gt; STTYSettings -&gt; IO STTYSettings
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hSttyRaw"><span class="hs-identifier hs-var hs-var">hSttyRaw</span></a></span></span><span> </span><span id="local-6989586621679090845"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090845"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span id="local-6989586621679090844"><span class="annot"><span class="annottext">STTYSettings
+</span><a href="#local-6989586621679090844"><span class="hs-identifier hs-var">arg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679090843"><span class="annot"><span class="annottext">stty :: CreateProcess
+</span><a href="#local-6989586621679090843"><span class="hs-identifier hs-var hs-var">stty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STTYSettings -&gt; CreateProcess
+</span><a href="../../process/src/System.Process.html#shell"><span class="hs-identifier hs-var">shell</span></a></span><span> </span><span class="annot"><span class="annottext">(STTYSettings -&gt; CreateProcess) -&gt; STTYSettings -&gt; CreateProcess
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings
+</span><span class="hs-string">&quot;stty &quot;</span></span><span> </span><span class="annot"><span class="annottext">STTYSettings -&gt; STTYSettings -&gt; STTYSettings
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><a href="../../base/src/GHC.Base.html#%2B%2B"><span class="hs-operator hs-var">++</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings
+</span><a href="#local-6989586621679090844"><span class="hs-identifier hs-var">arg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-93"></span><span>        </span><span class="annot"><span class="annottext">std_in :: StdStream
+</span><a href="../../process/src/System.Process.Common.html#std_in"><span class="hs-identifier hs-var">std_in</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; StdStream
+</span><a href="../../process/src/System.Process.Common.html#UseHandle"><span class="hs-identifier hs-var">UseHandle</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090845"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-94"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">std_out :: StdStream
+</span><a href="../../process/src/System.Process.Common.html#std_out"><span class="hs-identifier hs-var">std_out</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdStream
+</span><a href="../../process/src/System.Process.Common.html#CreatePipe"><span class="hs-identifier hs-var">CreatePipe</span></a></span><span>
+</span><span id="line-95"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-96"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe Handle
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679090840"><span class="annot"><span class="annottext">Maybe Handle
+</span><a href="#local-6989586621679090840"><span class="hs-identifier hs-var">mbStdout</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Handle
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679090839"><span class="annot"><span class="annottext">ProcessHandle
+</span><a href="#local-6989586621679090839"><span class="hs-identifier hs-var">rStty</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CreateProcess
+-&gt; IO (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
+</span><a href="../../process/src/System.Process.html#createProcess"><span class="hs-identifier hs-var">createProcess</span></a></span><span> </span><span class="annot"><span class="annottext">CreateProcess
+</span><a href="#local-6989586621679090843"><span class="hs-identifier hs-var">stty</span></a></span><span>
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621679090838"><span class="annot"><span class="annottext">ExitCode
+</span><a href="#local-6989586621679090838"><span class="hs-identifier hs-var">exStty</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ProcessHandle -&gt; IO ExitCode
+</span><a href="../../process/src/System.Process.html#waitForProcess"><span class="hs-identifier hs-var">waitForProcess</span></a></span><span> </span><span class="annot"><span class="annottext">ProcessHandle
+</span><a href="#local-6989586621679090839"><span class="hs-identifier hs-var">rStty</span></a></span><span>
+</span><span id="line-98"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ExitCode
+</span><a href="#local-6989586621679090838"><span class="hs-identifier hs-var">exStty</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-99"></span><span>    </span><span id="local-6989586621679090837"><span class="annot"><span class="annottext">e :: ExitCode
+</span><a href="#local-6989586621679090837"><span class="hs-identifier hs-var">e</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="../../base/src/GHC.IO.Exception.html#ExitFailure"><span class="hs-identifier hs-type">ExitFailure</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ExitCode -&gt; IO STTYSettings
+forall a e. Exception e =&gt; e -&gt; a
+</span><a href="../../base/src/GHC.Exception.html#throw"><span class="hs-identifier hs-var">throw</span></a></span><span> </span><span class="annot"><span class="annottext">ExitCode
+</span><a href="#local-6989586621679090837"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><span class="annottext">ExitCode
+</span><a href="../../base/src/GHC.IO.Exception.html#ExitSuccess"><span class="hs-identifier hs-var">ExitSuccess</span></a></span><span>     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO STTYSettings
+-&gt; (Handle -&gt; IO STTYSettings) -&gt; Maybe Handle -&gt; IO STTYSettings
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="../../base/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STTYSettings -&gt; IO STTYSettings
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings
+</span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO STTYSettings
+</span><a href="../../base/src/GHC.IO.Handle.Text.html#hGetContents"><span class="hs-identifier hs-var">hGetContents</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Handle
+</span><a href="#local-6989586621679090840"><span class="hs-identifier hs-var">mbStdout</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- | A representation of the handle input's current echoing state.</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- See, for instance, 'hEchoOff'.</span><span>
+</span><span id="line-104"></span><span class="hs-keyword">data</span><span> </span><span id="EchoState"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#EchoState"><span class="hs-identifier hs-var">EchoState</span></a></span></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="MinTTY"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#MinTTY"><span class="hs-identifier hs-var">MinTTY</span></a></span></span><span> </span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#STTYSettings"><span class="hs-identifier hs-type">STTYSettings</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-comment">-- ^ The argument to (or value returned from) an invocation of the @stty@</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-comment">-- command-line utility. Most POSIX-like shells have @stty@, including</span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-comment">-- MinTTY on Windows. Since neither 'hGetEcho' nor 'hSetEcho' work on</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-comment">-- MinTTY, when 'getInputEchoState' runs on MinTTY, it returns a value</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-comment">-- built with this constructor.</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-comment">-- However, native Windows consoles like @cmd.exe@ or PowerShell do not</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-comment">-- have @stty@, so if you construct an 'EchoState' with this constructor</span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-comment">-- manually, take care not to use it with a native Windows console.</span><span>
+</span><span id="line-115"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DefaultTTY"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#DefaultTTY"><span class="hs-identifier hs-var">DefaultTTY</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-comment">-- ^ A simple on ('True') or off ('False') toggle. This is returned by</span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-comment">-- 'hGetEcho' and given as an argument to 'hSetEcho', which work on most</span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-comment">-- consoles, with the notable exception of MinTTY on Windows. If you</span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-comment">-- construct an 'EchoState' with this constructor manually, take care not</span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-comment">-- to use it with MinTTY.</span><span>
+</span><span id="line-121"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679090825"><span id="local-6989586621679090832"><span class="annot"><span class="annottext">EchoState -&gt; EchoState -&gt; Bool
+(EchoState -&gt; EchoState -&gt; Bool)
+-&gt; (EchoState -&gt; EchoState -&gt; Bool) -&gt; Eq EchoState
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: EchoState -&gt; EchoState -&gt; Bool
+$c/= :: EchoState -&gt; EchoState -&gt; Bool
+== :: EchoState -&gt; EchoState -&gt; Bool
+$c== :: EchoState -&gt; EchoState -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679090796"><span id="local-6989586621679090798"><span id="local-6989586621679090801"><span id="local-6989586621679090804"><span id="local-6989586621679090807"><span id="local-6989586621679090812"><span id="local-6989586621679090819"><span class="annot"><span class="annottext">Eq EchoState
+Eq EchoState
+-&gt; (EchoState -&gt; EchoState -&gt; Ordering)
+-&gt; (EchoState -&gt; EchoState -&gt; Bool)
+-&gt; (EchoState -&gt; EchoState -&gt; Bool)
+-&gt; (EchoState -&gt; EchoState -&gt; Bool)
+-&gt; (EchoState -&gt; EchoState -&gt; Bool)
+-&gt; (EchoState -&gt; EchoState -&gt; EchoState)
+-&gt; (EchoState -&gt; EchoState -&gt; EchoState)
+-&gt; Ord EchoState
+EchoState -&gt; EchoState -&gt; Bool
+EchoState -&gt; EchoState -&gt; Ordering
+EchoState -&gt; EchoState -&gt; EchoState
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: EchoState -&gt; EchoState -&gt; EchoState
+$cmin :: EchoState -&gt; EchoState -&gt; EchoState
+max :: EchoState -&gt; EchoState -&gt; EchoState
+$cmax :: EchoState -&gt; EchoState -&gt; EchoState
+&gt;= :: EchoState -&gt; EchoState -&gt; Bool
+$c&gt;= :: EchoState -&gt; EchoState -&gt; Bool
+&gt; :: EchoState -&gt; EchoState -&gt; Bool
+$c&gt; :: EchoState -&gt; EchoState -&gt; Bool
+&lt;= :: EchoState -&gt; EchoState -&gt; Bool
+$c&lt;= :: EchoState -&gt; EchoState -&gt; Bool
+&lt; :: EchoState -&gt; EchoState -&gt; Bool
+$c&lt; :: EchoState -&gt; EchoState -&gt; Bool
+compare :: EchoState -&gt; EchoState -&gt; Ordering
+$ccompare :: EchoState -&gt; EchoState -&gt; Ordering
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679090780"><span id="local-6989586621679090782"><span id="local-6989586621679090792"><span class="annot"><span class="annottext">Int -&gt; EchoState -&gt; STTYSettings -&gt; STTYSettings
+[EchoState] -&gt; STTYSettings -&gt; STTYSettings
+EchoState -&gt; STTYSettings
+(Int -&gt; EchoState -&gt; STTYSettings -&gt; STTYSettings)
+-&gt; (EchoState -&gt; STTYSettings)
+-&gt; ([EchoState] -&gt; STTYSettings -&gt; STTYSettings)
+-&gt; Show EchoState
+forall a.
+(Int -&gt; a -&gt; STTYSettings -&gt; STTYSettings)
+-&gt; (a -&gt; STTYSettings)
+-&gt; ([a] -&gt; STTYSettings -&gt; STTYSettings)
+-&gt; Show a
+showList :: [EchoState] -&gt; STTYSettings -&gt; STTYSettings
+$cshowList :: [EchoState] -&gt; STTYSettings -&gt; STTYSettings
+show :: EchoState -&gt; STTYSettings
+$cshow :: EchoState -&gt; STTYSettings
+showsPrec :: Int -&gt; EchoState -&gt; STTYSettings -&gt; STTYSettings
+$cshowsPrec :: Int -&gt; EchoState -&gt; STTYSettings -&gt; STTYSettings
+</span><a href="../../base/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- | Indicates that the handle's input echoing is (or should be) off.</span><span>
+</span><span id="line-124"></span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hEchoOff"><span class="hs-identifier hs-type">hEchoOff</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#EchoState"><span class="hs-identifier hs-type">EchoState</span></a></span><span>
+</span><span id="line-125"></span><span id="hEchoOff"><span class="annot"><span class="annottext">hEchoOff :: Handle -&gt; IO EchoState
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#hEchoOff"><span class="hs-identifier hs-var hs-var">hEchoOff</span></a></span></span><span> </span><span id="local-6989586621679090777"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090777"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-126"></span><span>  </span><span id="local-6989586621679090776"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679090776"><span class="hs-identifier hs-var">min_tty</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO Bool
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#minTTY"><span class="hs-identifier hs-var">minTTY</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090777"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-127"></span><span>  </span><span class="annot"><span class="annottext">EchoState -&gt; IO EchoState
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">(EchoState -&gt; IO EchoState) -&gt; EchoState -&gt; IO EchoState
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679090776"><span class="hs-identifier hs-var">min_tty</span></a></span><span>
+</span><span id="line-128"></span><span>              </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">STTYSettings -&gt; EchoState
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#MinTTY"><span class="hs-identifier hs-var">MinTTY</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings
+</span><span class="hs-string">&quot;-echo&quot;</span></span><span>
+</span><span id="line-129"></span><span>              </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; EchoState
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#DefaultTTY"><span class="hs-identifier hs-var">DefaultTTY</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- | Settings used to configure the @stty@ command-line utility.</span><span>
+</span><span id="line-132"></span><span class="hs-keyword">type</span><span> </span><span id="STTYSettings"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#STTYSettings"><span class="hs-identifier hs-var">STTYSettings</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- | Is the current process attached to a MinTTY console (e.g., Cygwin or MSYS)?</span><span>
+</span><span id="line-135"></span><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#minTTY"><span class="hs-identifier hs-type">minTTY</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-cpp">
+#if MIN_VERSION_Win32(2,5,0)
+</span><span id="minTTY"><span class="annot"><span class="annottext">minTTY :: Handle -&gt; IO Bool
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#minTTY"><span class="hs-identifier hs-var hs-var">minTTY</span></a></span></span><span> </span><span id="local-6989586621679090775"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090775"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; (HANDLE -&gt; IO Bool) -&gt; IO Bool
+forall a. Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLE"><span class="hs-identifier hs-var">withHandleToHANDLE</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090775"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">HANDLE -&gt; IO Bool
+</span><a href="../../Win32/src/System.Win32.MinTTY.html#isMinTTYHandle"><span class="hs-identifier hs-var">isMinTTYHandle</span></a></span><span class="hs-cpp">
+#else
+</span><span class="hs-comment">-- On older versions of Win32, we simply punt.</span><span>
+</span><span id="line-140"></span><span class="hs-identifier">minTTY</span><span> </span><span class="hs-identifier">_</span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">return</span><span> </span><span class="hs-identifier">False</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">
+#if MIN_VERSION_Win32(2,5,0)
+</span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">ccall</span></span><span> </span><span class="annot"><span class="hs-keyword">unsafe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;_get_osfhandle&quot;</span></span><span>
+</span><span id="line-145"></span><span>  </span><span id="c_get_osfhandle"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#c_get_osfhandle"><span class="hs-identifier hs-var">c_get_osfhandle</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/Foreign.C.Types.html#CInt"><span class="hs-identifier hs-type">CInt</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="../../Win32/src/System.Win32.Types.html#HANDLE"><span class="hs-identifier hs-type">HANDLE</span></a></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- | Extract a Windows 'HANDLE' from a Haskell 'Handle' and perform</span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- an action on it.</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- Originally authored by Max Bolingbroke in the ansi-terminal library</span><span>
+</span><span id="line-151"></span><span id="local-6989586621679090950"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLE"><span class="hs-identifier hs-type">withHandleToHANDLE</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../Win32/src/System.Win32.Types.html#HANDLE"><span class="hs-identifier hs-type">HANDLE</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679090950"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679090950"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-cpp">
+#if defined(__IO_MANAGER_WINIO__)
+</span><span id="withHandleToHANDLE"><span class="annot"><span class="annottext">withHandleToHANDLE :: forall a. Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLE"><span class="hs-identifier hs-var hs-var">withHandleToHANDLE</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a
+forall a. Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLEPosix"><span class="hs-identifier hs-var">withHandleToHANDLEPosix</span></a></span><span> </span><span class="annot"><span class="annottext">(Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a)
+-&gt; (Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a)
+-&gt; Handle
+-&gt; (HANDLE -&gt; IO a)
+-&gt; IO a
+forall a. a -&gt; a -&gt; a
+</span><a href="../../base/src/GHC.IO.SubSystem.html#%3C%21%3E"><span class="hs-operator hs-var">&lt;!&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a
+forall a. Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLENative"><span class="hs-identifier hs-var">withHandleToHANDLENative</span></a></span><span class="hs-cpp">
+#else
+</span><span class="hs-identifier">withHandleToHANDLE</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">withHandleToHANDLEPosix</span><span class="hs-cpp">
+#endif
+</span><span class="hs-cpp">
+#if defined(__IO_MANAGER_WINIO__)
+</span><span id="local-6989586621679090770"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLENative"><span class="hs-identifier hs-type">withHandleToHANDLENative</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../Win32/src/System.Win32.Types.html#HANDLE"><span class="hs-identifier hs-type">HANDLE</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679090770"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679090770"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-160"></span><span id="withHandleToHANDLENative"><span class="annot"><span class="annottext">withHandleToHANDLENative :: forall a. Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLENative"><span class="hs-identifier hs-var hs-var">withHandleToHANDLENative</span></a></span></span><span> </span><span id="local-6989586621679090768"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090768"><span class="hs-identifier hs-var">haskell_handle</span></a></span></span><span> </span><span id="local-6989586621679090767"><span class="annot"><span class="annottext">HANDLE -&gt; IO a
+</span><a href="#local-6989586621679090767"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-comment">-- Create a stable pointer to the Handle. This prevents the garbage collector</span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-comment">-- getting to it while we are doing horrible manipulations with it, and hence</span><span>
+</span><span id="line-163"></span><span>    </span><span class="hs-comment">-- stops it being finalized (and closed).</span><span>
+</span><span id="line-164"></span><span>    </span><span class="annot"><span class="annottext">Handle -&gt; (StablePtr Handle -&gt; IO a) -&gt; IO a
+forall a b. a -&gt; (StablePtr a -&gt; IO b) -&gt; IO b
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withStablePtr"><span class="hs-identifier hs-var">withStablePtr</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090768"><span class="hs-identifier hs-var">haskell_handle</span></a></span><span> </span><span class="annot"><span class="annottext">((StablePtr Handle -&gt; IO a) -&gt; IO a)
+-&gt; (StablePtr Handle -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">IO a -&gt; StablePtr Handle -&gt; IO a
+forall a b. a -&gt; b -&gt; a
+</span><a href="../../base/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(IO a -&gt; StablePtr Handle -&gt; IO a)
+-&gt; IO a -&gt; StablePtr Handle -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-165"></span><span>        </span><span id="local-6989586621679090765"><span class="annot"><span class="annottext">HANDLE
+</span><a href="#local-6989586621679090765"><span class="hs-identifier hs-var">windows_handle</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO HANDLE
+</span><a href="../../base/src/GHC.IO.Handle.Windows.html#handleToHANDLE"><span class="hs-identifier hs-var">handleToHANDLE</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090768"><span class="hs-identifier hs-var">haskell_handle</span></a></span><span>
+</span><span id="line-166"></span><span>        </span><span class="hs-comment">-- Do what the user originally wanted</span><span>
+</span><span id="line-167"></span><span>        </span><span class="annot"><span class="annottext">HANDLE -&gt; IO a
+</span><a href="#local-6989586621679090767"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">HANDLE
+</span><a href="#local-6989586621679090765"><span class="hs-identifier hs-var">windows_handle</span></a></span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-170"></span><span id="local-6989586621679090764"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLEPosix"><span class="hs-identifier hs-type">withHandleToHANDLEPosix</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle"><span class="hs-identifier hs-type">Handle</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../Win32/src/System.Win32.Types.html#HANDLE"><span class="hs-identifier hs-type">HANDLE</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679090764"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679090764"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-171"></span><span id="withHandleToHANDLEPosix"><span class="annot"><span class="annottext">withHandleToHANDLEPosix :: forall a. Handle -&gt; (HANDLE -&gt; IO a) -&gt; IO a
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withHandleToHANDLEPosix"><span class="hs-identifier hs-var hs-var">withHandleToHANDLEPosix</span></a></span></span><span> </span><span id="local-6989586621679090758"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090758"><span class="hs-identifier hs-var">haskell_handle</span></a></span></span><span> </span><span id="local-6989586621679090757"><span class="annot"><span class="annottext">HANDLE -&gt; IO a
+</span><a href="#local-6989586621679090757"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-comment">-- Create a stable pointer to the Handle. This prevents the garbage collector</span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-comment">-- getting to it while we are doing horrible manipulations with it, and hence</span><span>
+</span><span id="line-174"></span><span>    </span><span class="hs-comment">-- stops it being finalized (and closed).</span><span>
+</span><span id="line-175"></span><span>    </span><span class="annot"><span class="annottext">Handle -&gt; (StablePtr Handle -&gt; IO a) -&gt; IO a
+forall a b. a -&gt; (StablePtr a -&gt; IO b) -&gt; IO b
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withStablePtr"><span class="hs-identifier hs-var">withStablePtr</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090758"><span class="hs-identifier hs-var">haskell_handle</span></a></span><span> </span><span class="annot"><span class="annottext">((StablePtr Handle -&gt; IO a) -&gt; IO a)
+-&gt; (StablePtr Handle -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">IO a -&gt; StablePtr Handle -&gt; IO a
+forall a b. a -&gt; b -&gt; a
+</span><a href="../../base/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(IO a -&gt; StablePtr Handle -&gt; IO a)
+-&gt; IO a -&gt; StablePtr Handle -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-176"></span><span>        </span><span class="hs-comment">-- Grab the write handle variable from the Handle</span><span>
+</span><span id="line-177"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679090756"><span class="annot"><span class="annottext">write_handle_mvar :: MVar Handle__
+</span><a href="#local-6989586621679090756"><span class="hs-identifier hs-var hs-var">write_handle_mvar</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679090758"><span class="hs-identifier hs-var">haskell_handle</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-178"></span><span>                </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#FileHandle"><span class="hs-identifier hs-type">FileHandle</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679090754"><span class="annot"><span class="annottext">MVar Handle__
+</span><a href="#local-6989586621679090754"><span class="hs-identifier hs-var">handle_mvar</span></a></span></span><span>     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar Handle__
+</span><a href="#local-6989586621679090754"><span class="hs-identifier hs-var">handle_mvar</span></a></span><span>
+</span><span id="line-179"></span><span>                </span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#DuplexHandle"><span class="hs-identifier hs-type">DuplexHandle</span></a></span><span> </span><span class="annot"><span class="annottext">STTYSettings
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">MVar Handle__
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679090752"><span class="annot"><span class="annottext">MVar Handle__
+</span><a href="#local-6989586621679090752"><span class="hs-identifier hs-var">handle_mvar</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar Handle__
+</span><a href="#local-6989586621679090752"><span class="hs-identifier hs-var">handle_mvar</span></a></span><span>
+</span><span id="line-180"></span><span>                  </span><span class="hs-comment">-- This is &quot;write&quot; MVar, we could also take the &quot;read&quot; one</span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span>        </span><span class="hs-comment">-- Get the FD from the algebraic data type</span><span>
+</span><span id="line-183"></span><span>        </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679090751"><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679090751"><span class="hs-identifier hs-var">fd</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Handle__ -&gt; Maybe CInt) -&gt; IO Handle__ -&gt; IO (Maybe CInt)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="../../base/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.IO.Handle.Types.html#Handle__"><span class="hs-identifier hs-type">Handle__</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">haDevice :: ()
+</span><a href="../../base/src/GHC.IO.Handle.Types.html#haDevice"><span class="hs-identifier hs-var">haDevice</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679090740"><span class="annot"><span class="annottext">dev
+</span><a href="#local-6989586621679090740"><span class="hs-identifier hs-var">dev</span></a></span></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(FD -&gt; CInt) -&gt; Maybe FD -&gt; Maybe CInt
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="../../base/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">FD -&gt; CInt
+</span><a href="../../base/src/GHC.IO.FD.html#fdFD"><span class="hs-identifier hs-var hs-var">fdFD</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">dev -&gt; Maybe FD
+forall a b. (Typeable a, Typeable b) =&gt; a -&gt; Maybe b
+</span><a href="../../base/src/Data.Typeable.html#cast"><span class="hs-identifier hs-var">cast</span></a></span><span> </span><span class="annot"><span class="annottext">dev
+</span><a href="#local-6989586621679090740"><span class="hs-identifier hs-var">dev</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-184"></span><span>                 </span><span class="annot"><span class="annottext">(IO Handle__ -&gt; IO (Maybe CInt)) -&gt; IO Handle__ -&gt; IO (Maybe CInt)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">MVar Handle__ -&gt; IO Handle__
+forall a. MVar a -&gt; IO a
+</span><a href="../../base/src/GHC.MVar.html#readMVar"><span class="hs-identifier hs-var">readMVar</span></a></span><span> </span><span class="annot"><span class="annottext">MVar Handle__
+</span><a href="#local-6989586621679090756"><span class="hs-identifier hs-var">write_handle_mvar</span></a></span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span>        </span><span class="hs-comment">-- Finally, turn that (C-land) FD into a HANDLE using msvcrt</span><span>
+</span><span id="line-187"></span><span>        </span><span id="local-6989586621679090738"><span class="annot"><span class="annottext">HANDLE
+</span><a href="#local-6989586621679090738"><span class="hs-identifier hs-var">windows_handle</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CInt -&gt; IO HANDLE
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#c_get_osfhandle"><span class="hs-identifier hs-var">c_get_osfhandle</span></a></span><span> </span><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621679090751"><span class="hs-identifier hs-var">fd</span></a></span><span>
+</span><span id="line-188"></span><span>        </span><span class="hs-comment">-- Do what the user originally wanted</span><span>
+</span><span id="line-189"></span><span>        </span><span class="annot"><span class="annottext">HANDLE -&gt; IO a
+</span><a href="#local-6989586621679090757"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">HANDLE
+</span><a href="#local-6989586621679090738"><span class="hs-identifier hs-var">windows_handle</span></a></span><span>
+</span><span id="line-190"></span><span>
+</span><span id="line-191"></span><span id="local-6989586621679090945"><span id="local-6989586621679090946"><span class="annot"><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withStablePtr"><span class="hs-identifier hs-type">withStablePtr</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679090946"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Stable.html#StablePtr"><span class="hs-identifier hs-type">StablePtr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679090946"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679090945"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679090945"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-192"></span><span id="withStablePtr"><span class="annot"><span class="annottext">withStablePtr :: forall a b. a -&gt; (StablePtr a -&gt; IO b) -&gt; IO b
+</span><a href="System.Console.Haskeline.Backend.Win32.Echo.html#withStablePtr"><span class="hs-identifier hs-var hs-var">withStablePtr</span></a></span></span><span> </span><span id="local-6989586621679090735"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679090735"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (StablePtr a)
+-&gt; (StablePtr a -&gt; IO ()) -&gt; (StablePtr a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a c b.
+MonadMask m =&gt;
+m a -&gt; (a -&gt; m c) -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="../../exceptions/src/Control.Monad.Catch.html#bracket"><span class="hs-identifier hs-var">bracket</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; IO (StablePtr a)
+forall a. a -&gt; IO (StablePtr a)
+</span><a href="../../base/src/GHC.Stable.html#newStablePtr"><span class="hs-identifier hs-var">newStablePtr</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679090735"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">StablePtr a -&gt; IO ()
+forall a. StablePtr a -&gt; IO ()
+</span><a href="../../base/src/GHC.Stable.html#freeStablePtr"><span class="hs-identifier hs-var">freeStablePtr</span></a></span><span class="hs-cpp">
+#endif
+</span></pre></body></html>

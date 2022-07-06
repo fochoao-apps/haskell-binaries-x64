@@ -1,0 +1,420 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-
+
+Copyright (c) 2014 Joachim Breitner
+
+A data structure for undirected graphs of variables
+(or in plain terms: Sets of unordered pairs of numbers)
+
+
+This is very specifically tailored for the use in CallArity. In particular it
+stores the graph as a union of complete and complete bipartite graph, which
+would be very expensive to store as sets of edges or as adjanceny lists.
+
+It does not normalize the graphs. This means that g `unionUnVarGraph` g is
+equal to g, but twice as expensive and large.
+
+-}</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.Data.Graph.UnVar</span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier">UnVarSet</span></a></span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#emptyUnVarSet"><span class="hs-identifier">emptyUnVarSet</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#mkUnVarSet"><span class="hs-identifier">mkUnVarSet</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#varEnvDom"><span class="hs-identifier">varEnvDom</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#unionUnVarSet"><span class="hs-identifier">unionUnVarSet</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#unionUnVarSets"><span class="hs-identifier">unionUnVarSets</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#delUnVarSet"><span class="hs-identifier">delUnVarSet</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-identifier">elemUnVarSet</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#isEmptyUnVarSet"><span class="hs-identifier">isEmptyUnVarSet</span></a></span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier">UnVarGraph</span></a></span><span>
+</span><span id="line-23"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#emptyUnVarGraph"><span class="hs-identifier">emptyUnVarGraph</span></a></span><span>
+</span><span id="line-24"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#unionUnVarGraph"><span class="hs-identifier">unionUnVarGraph</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#unionUnVarGraphs"><span class="hs-identifier">unionUnVarGraphs</span></a></span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#completeGraph"><span class="hs-identifier">completeGraph</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#completeBipartiteGraph"><span class="hs-identifier">completeBipartiteGraph</span></a></span><span>
+</span><span id="line-26"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#neighbors"><span class="hs-identifier">neighbors</span></a></span><span>
+</span><span id="line-27"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#hasLoopAt"><span class="hs-identifier">hasLoopAt</span></a></span><span>
+</span><span id="line-28"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#delNode"><span class="hs-identifier">delNode</span></a></span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Prelude.html"><span class="hs-identifier">GHC.Prelude</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.Id.html"><span class="hs-identifier">GHC.Types.Id</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.Var.Env.html"><span class="hs-identifier">GHC.Types.Var.Env</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.Unique.FM.html"><span class="hs-identifier">GHC.Types.Unique.FM</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Utils.Outputable.html"><span class="hs-identifier">GHC.Utils.Outputable</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Data.Bag.html"><span class="hs-identifier">GHC.Data.Bag</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.Unique.html"><span class="hs-identifier">GHC.Types.Unique</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="../../containers/src/Data.IntSet.html#"><span class="hs-identifier">Data.IntSet</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- We need a type for sets of variables (UnVarSet).</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- We do not use VarSet, because for that we need to have the actual variable</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- at hand, and we do not have that when we turn the domain of a VarEnv into a UnVarSet.</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- Therefore, use a IntSet directly (which is likely also a bit more efficient).</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- Set of uniques, i.e. for adjancet nodes</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">newtype</span><span> </span><span id="UnVarSet"><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-var">UnVarSet</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnVarSet"><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-var">UnVarSet</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../containers/src/Data.IntSet.Internal.html#IntSet"><span class="hs-identifier hs-type">S.IntSet</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621680952930"><span id="local-6989586621680952935"><span class="annot"><span class="annottext">UnVarSet -&gt; UnVarSet -&gt; Bool
+(UnVarSet -&gt; UnVarSet -&gt; Bool)
+-&gt; (UnVarSet -&gt; UnVarSet -&gt; Bool) -&gt; Eq UnVarSet
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: UnVarSet -&gt; UnVarSet -&gt; Bool
+$c/= :: UnVarSet -&gt; UnVarSet -&gt; Bool
+== :: UnVarSet -&gt; UnVarSet -&gt; Bool
+$c== :: UnVarSet -&gt; UnVarSet -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#k"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Var.html#Var"><span class="hs-identifier hs-type">Var</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-52"></span><span id="k"><span class="annot"><span class="annottext">k :: Var -&gt; Int
+</span><a href="GHC.Data.Graph.UnVar.html#k"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span id="local-6989586621680952924"><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952924"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Unique -&gt; Int
+</span><a href="GHC.Types.Unique.html#getKey"><span class="hs-identifier hs-var">getKey</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Var -&gt; Unique
+forall a. Uniquable a =&gt; a -&gt; Unique
+</span><a href="GHC.Types.Unique.html#getUnique"><span class="hs-identifier hs-var">getUnique</span></a></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952924"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#emptyUnVarSet"><span class="hs-identifier hs-type">emptyUnVarSet</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span>
+</span><span id="line-55"></span><span id="emptyUnVarSet"><span class="annot"><span class="annottext">emptyUnVarSet :: UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#emptyUnVarSet"><span class="hs-identifier hs-var hs-var">emptyUnVarSet</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-var">UnVarSet</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="../../containers/src/Data.IntSet.Internal.html#empty"><span class="hs-identifier hs-var">S.empty</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-identifier hs-type">elemUnVarSet</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Var.html#Var"><span class="hs-identifier hs-type">Var</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-58"></span><span id="elemUnVarSet"><span class="annot"><span class="annottext">elemUnVarSet :: Var -&gt; UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-identifier hs-var hs-var">elemUnVarSet</span></a></span></span><span> </span><span id="local-6989586621680952920"><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952920"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span id="local-6989586621680952919"><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952919"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Var -&gt; Int
+</span><a href="GHC.Data.Graph.UnVar.html#k"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952920"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IntSet -&gt; Bool
+</span><a href="../../containers/src/Data.IntSet.Internal.html#member"><span class="hs-operator hs-var">`S.member`</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952919"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#isEmptyUnVarSet"><span class="hs-identifier hs-type">isEmptyUnVarSet</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-62"></span><span id="isEmptyUnVarSet"><span class="annot"><span class="annottext">isEmptyUnVarSet :: UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#isEmptyUnVarSet"><span class="hs-identifier hs-var hs-var">isEmptyUnVarSet</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span id="local-6989586621680952917"><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952917"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; Bool
+</span><a href="../../containers/src/Data.IntSet.Internal.html#null"><span class="hs-identifier hs-var">S.null</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952917"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#delUnVarSet"><span class="hs-identifier hs-type">delUnVarSet</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Var.html#Var"><span class="hs-identifier hs-type">Var</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span>
+</span><span id="line-65"></span><span id="delUnVarSet"><span class="annot"><span class="annottext">delUnVarSet :: UnVarSet -&gt; Var -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#delUnVarSet"><span class="hs-identifier hs-var hs-var">delUnVarSet</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span id="local-6989586621680952915"><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952915"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680952914"><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952914"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-var">UnVarSet</span></a></span><span> </span><span class="annot"><span class="annottext">(IntSet -&gt; UnVarSet) -&gt; IntSet -&gt; UnVarSet
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Var -&gt; Int
+</span><a href="GHC.Data.Graph.UnVar.html#k"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952914"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IntSet -&gt; IntSet
+</span><a href="../../containers/src/Data.IntSet.Internal.html#delete"><span class="hs-operator hs-var">`S.delete`</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952915"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#mkUnVarSet"><span class="hs-identifier hs-type">mkUnVarSet</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Types.Var.html#Var"><span class="hs-identifier hs-type">Var</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span>
+</span><span id="line-68"></span><span id="mkUnVarSet"><span class="annot"><span class="annottext">mkUnVarSet :: [Var] -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#mkUnVarSet"><span class="hs-identifier hs-var hs-var">mkUnVarSet</span></a></span></span><span> </span><span id="local-6989586621680952912"><span class="annot"><span class="annottext">[Var]
+</span><a href="#local-6989586621680952912"><span class="hs-identifier hs-var">vs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-var">UnVarSet</span></a></span><span> </span><span class="annot"><span class="annottext">(IntSet -&gt; UnVarSet) -&gt; IntSet -&gt; UnVarSet
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; IntSet
+</span><a href="../../containers/src/Data.IntSet.Internal.html#fromList"><span class="hs-identifier hs-var">S.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([Int] -&gt; IntSet) -&gt; [Int] -&gt; IntSet
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Var -&gt; Int) -&gt; [Var] -&gt; [Int]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="../../base/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">Var -&gt; Int
+</span><a href="GHC.Data.Graph.UnVar.html#k"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">[Var]
+</span><a href="#local-6989586621680952912"><span class="hs-identifier hs-var">vs</span></a></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span id="local-6989586621680952995"><span class="annot"><a href="GHC.Data.Graph.UnVar.html#varEnvDom"><span class="hs-identifier hs-type">varEnvDom</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Var.Env.html#VarEnv"><span class="hs-identifier hs-type">VarEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680952995"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span></span><span>
+</span><span id="line-71"></span><span id="varEnvDom"><span class="annot"><span class="annottext">varEnvDom :: forall a. VarEnv a -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#varEnvDom"><span class="hs-identifier hs-var hs-var">varEnvDom</span></a></span></span><span> </span><span id="local-6989586621680952910"><span class="annot"><span class="annottext">VarEnv a
+</span><a href="#local-6989586621680952910"><span class="hs-identifier hs-var">ae</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-var">UnVarSet</span></a></span><span> </span><span class="annot"><span class="annottext">(IntSet -&gt; UnVarSet) -&gt; IntSet -&gt; UnVarSet
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">VarEnv a -&gt; IntSet
+forall key elt. UniqFM key elt -&gt; IntSet
+</span><a href="GHC.Types.Unique.FM.html#ufmToSet_Directly"><span class="hs-identifier hs-var">ufmToSet_Directly</span></a></span><span> </span><span class="annot"><span class="annottext">VarEnv a
+</span><a href="#local-6989586621680952910"><span class="hs-identifier hs-var">ae</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#unionUnVarSet"><span class="hs-identifier hs-type">unionUnVarSet</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span>
+</span><span id="line-74"></span><span id="unionUnVarSet"><span class="annot"><span class="annottext">unionUnVarSet :: UnVarSet -&gt; UnVarSet -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#unionUnVarSet"><span class="hs-identifier hs-var hs-var">unionUnVarSet</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span id="local-6989586621680952908"><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952908"><span class="hs-identifier hs-var">set1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span id="local-6989586621680952907"><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952907"><span class="hs-identifier hs-var">set2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-var">UnVarSet</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952908"><span class="hs-identifier hs-var">set1</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; IntSet -&gt; IntSet
+</span><a href="../../containers/src/Data.IntSet.Internal.html#union"><span class="hs-operator hs-var">`S.union`</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952907"><span class="hs-identifier hs-var">set2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#unionUnVarSets"><span class="hs-identifier hs-type">unionUnVarSets</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span>
+</span><span id="line-77"></span><span id="unionUnVarSets"><span class="annot"><span class="annottext">unionUnVarSets :: [UnVarSet] -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#unionUnVarSets"><span class="hs-identifier hs-var hs-var">unionUnVarSets</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UnVarSet -&gt; UnVarSet -&gt; UnVarSet)
+-&gt; UnVarSet -&gt; [UnVarSet] -&gt; UnVarSet
+forall (t :: * -&gt; *) a b.
+Foldable t =&gt;
+(a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><a href="../../base/src/Data.Foldable.html#foldr"><span class="hs-identifier hs-var">foldr</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; UnVarSet -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#unionUnVarSet"><span class="hs-identifier hs-var">unionUnVarSet</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#emptyUnVarSet"><span class="hs-identifier hs-var">emptyUnVarSet</span></a></span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680952902"><span class="annot"><a href="GHC.Utils.Outputable.html#Outputable"><span class="hs-identifier hs-type">Outputable</span></a></span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-80"></span><span>    </span><span id="local-6989586621680952896"><span class="annot"><span class="annottext">ppr :: UnVarSet -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier hs-var hs-var hs-var hs-var">ppr</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span id="local-6989586621680952894"><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952894"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#braces"><span class="hs-identifier hs-var">braces</span></a></span><span> </span><span class="annot"><span class="annottext">(SDoc -&gt; SDoc) -&gt; SDoc -&gt; SDoc
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-81"></span><span>        </span><span class="annot"><span class="annottext">[SDoc] -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#hcat"><span class="hs-identifier hs-var">hcat</span></a></span><span> </span><span class="annot"><span class="annottext">([SDoc] -&gt; SDoc) -&gt; [SDoc] -&gt; SDoc
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; [SDoc] -&gt; [SDoc]
+</span><a href="GHC.Utils.Outputable.html#punctuate"><span class="hs-identifier hs-var">punctuate</span></a></span><span> </span><span class="annot"><span class="annottext">SDoc
+</span><a href="GHC.Utils.Outputable.html#comma"><span class="hs-identifier hs-var">comma</span></a></span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Unique -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier hs-var">ppr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Unique
+forall a. Uniquable a =&gt; a -&gt; Unique
+</span><a href="GHC.Types.Unique.html#getUnique"><span class="hs-identifier hs-var">getUnique</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680952889"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621680952889"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621680952889"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IntSet -&gt; [Int]
+</span><a href="../../containers/src/Data.IntSet.Internal.html#toList"><span class="hs-identifier hs-var">S.toList</span></a></span><span> </span><span class="annot"><span class="annottext">IntSet
+</span><a href="#local-6989586621680952894"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- The graph type. A list of complete bipartite graphs</span><span>
+</span><span id="line-85"></span><span class="hs-keyword">data</span><span> </span><span id="Gen"><span class="annot"><a href="GHC.Data.Graph.UnVar.html#Gen"><span class="hs-identifier hs-var">Gen</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CBPG"><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CBPG"><span class="hs-identifier hs-var">CBPG</span></a></span></span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-comment">-- complete bipartite</span><span>
+</span><span id="line-86"></span><span>         </span><span class="hs-glyph">|</span><span> </span><span id="CG"><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CG"><span class="hs-identifier hs-var">CG</span></a></span></span><span>   </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span>          </span><span class="hs-comment">-- complete</span><span>
+</span><span id="line-87"></span><span class="hs-keyword">newtype</span><span> </span><span id="UnVarGraph"><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-var">UnVarGraph</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnVarGraph"><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-var">UnVarGraph</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Bag.html#Bag"><span class="hs-identifier hs-type">Bag</span></a></span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#Gen"><span class="hs-identifier hs-type">Gen</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#emptyUnVarGraph"><span class="hs-identifier hs-type">emptyUnVarGraph</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span>
+</span><span id="line-90"></span><span id="emptyUnVarGraph"><span class="annot"><span class="annottext">emptyUnVarGraph :: UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#emptyUnVarGraph"><span class="hs-identifier hs-var hs-var">emptyUnVarGraph</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-var">UnVarGraph</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen
+forall a. Bag a
+</span><a href="GHC.Data.Bag.html#emptyBag"><span class="hs-identifier hs-var">emptyBag</span></a></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#unionUnVarGraph"><span class="hs-identifier hs-type">unionUnVarGraph</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span>
+</span><span id="line-93"></span><span class="hs-comment">{-
+Premature optimisation, it seems.
+unionUnVarGraph (UnVarGraph [CBPG s1 s2]) (UnVarGraph [CG s3, CG s4])
+    | s1 == s3 &amp;&amp; s2 == s4
+    = pprTrace &quot;unionUnVarGraph fired&quot; empty $
+      completeGraph (s1 `unionUnVarSet` s2)
+unionUnVarGraph (UnVarGraph [CBPG s1 s2]) (UnVarGraph [CG s3, CG s4])
+    | s2 == s3 &amp;&amp; s1 == s4
+    = pprTrace &quot;unionUnVarGraph fired2&quot; empty $
+      completeGraph (s1 `unionUnVarSet` s2)
+-}</span><span>
+</span><span id="line-104"></span><span id="unionUnVarGraph"><span class="annot"><span class="annottext">unionUnVarGraph :: UnVarGraph -&gt; UnVarGraph -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#unionUnVarGraph"><span class="hs-identifier hs-var hs-var">unionUnVarGraph</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span id="local-6989586621680952883"><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952883"><span class="hs-identifier hs-var">g1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span id="local-6989586621680952882"><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952882"><span class="hs-identifier hs-var">g2</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-comment">-- pprTrace &quot;unionUnVarGraph&quot; (ppr (length g1, length g2)) $</span><span>
+</span><span id="line-106"></span><span>      </span><span class="annot"><span class="annottext">Bag Gen -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-var">UnVarGraph</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952883"><span class="hs-identifier hs-var">g1</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; Bag Gen -&gt; Bag Gen
+forall a. Bag a -&gt; Bag a -&gt; Bag a
+</span><a href="GHC.Data.Bag.html#unionBags"><span class="hs-operator hs-var">`unionBags`</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952882"><span class="hs-identifier hs-var">g2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#unionUnVarGraphs"><span class="hs-identifier hs-type">unionUnVarGraphs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span>
+</span><span id="line-109"></span><span id="unionUnVarGraphs"><span class="annot"><span class="annottext">unionUnVarGraphs :: [UnVarGraph] -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#unionUnVarGraphs"><span class="hs-identifier hs-var hs-var">unionUnVarGraphs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UnVarGraph -&gt; UnVarGraph -&gt; UnVarGraph)
+-&gt; UnVarGraph -&gt; [UnVarGraph] -&gt; UnVarGraph
+forall (t :: * -&gt; *) b a.
+Foldable t =&gt;
+(b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><a href="../../base/src/Data.Foldable.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarGraph -&gt; UnVarGraph -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#unionUnVarGraph"><span class="hs-identifier hs-var">unionUnVarGraph</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#emptyUnVarGraph"><span class="hs-identifier hs-var">emptyUnVarGraph</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- completeBipartiteGraph A B = { {a,b} | a &#8712; A, b &#8712; B }</span><span>
+</span><span id="line-112"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#completeBipartiteGraph"><span class="hs-identifier hs-type">completeBipartiteGraph</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span>
+</span><span id="line-113"></span><span id="completeBipartiteGraph"><span class="annot"><span class="annottext">completeBipartiteGraph :: UnVarSet -&gt; UnVarSet -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#completeBipartiteGraph"><span class="hs-identifier hs-var hs-var">completeBipartiteGraph</span></a></span></span><span> </span><span id="local-6989586621680952879"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952879"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621680952878"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952878"><span class="hs-identifier hs-var">s2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnVarGraph -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#prune"><span class="hs-identifier hs-var">prune</span></a></span><span> </span><span class="annot"><span class="annottext">(UnVarGraph -&gt; UnVarGraph) -&gt; UnVarGraph -&gt; UnVarGraph
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-var">UnVarGraph</span></a></span><span> </span><span class="annot"><span class="annottext">(Bag Gen -&gt; UnVarGraph) -&gt; Bag Gen -&gt; UnVarGraph
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Gen -&gt; Bag Gen
+forall a. a -&gt; Bag a
+</span><a href="GHC.Data.Bag.html#unitBag"><span class="hs-identifier hs-var">unitBag</span></a></span><span> </span><span class="annot"><span class="annottext">(Gen -&gt; Bag Gen) -&gt; Gen -&gt; Bag Gen
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; UnVarSet -&gt; Gen
+</span><a href="GHC.Data.Graph.UnVar.html#CBPG"><span class="hs-identifier hs-var">CBPG</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952879"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952878"><span class="hs-identifier hs-var">s2</span></a></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#completeGraph"><span class="hs-identifier hs-type">completeGraph</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span>
+</span><span id="line-116"></span><span id="completeGraph"><span class="annot"><span class="annottext">completeGraph :: UnVarSet -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#completeGraph"><span class="hs-identifier hs-var hs-var">completeGraph</span></a></span></span><span> </span><span id="local-6989586621680952875"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952875"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnVarGraph -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#prune"><span class="hs-identifier hs-var">prune</span></a></span><span> </span><span class="annot"><span class="annottext">(UnVarGraph -&gt; UnVarGraph) -&gt; UnVarGraph -&gt; UnVarGraph
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-var">UnVarGraph</span></a></span><span> </span><span class="annot"><span class="annottext">(Bag Gen -&gt; UnVarGraph) -&gt; Bag Gen -&gt; UnVarGraph
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Gen -&gt; Bag Gen
+forall a. a -&gt; Bag a
+</span><a href="GHC.Data.Bag.html#unitBag"><span class="hs-identifier hs-var">unitBag</span></a></span><span> </span><span class="annot"><span class="annottext">(Gen -&gt; Bag Gen) -&gt; Gen -&gt; Bag Gen
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; Gen
+</span><a href="GHC.Data.Graph.UnVar.html#CG"><span class="hs-identifier hs-var">CG</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952875"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#neighbors"><span class="hs-identifier hs-type">neighbors</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Var.html#Var"><span class="hs-identifier hs-type">Var</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarSet"><span class="hs-identifier hs-type">UnVarSet</span></a></span><span>
+</span><span id="line-119"></span><span id="neighbors"><span class="annot"><span class="annottext">neighbors :: UnVarGraph -&gt; Var -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#neighbors"><span class="hs-identifier hs-var hs-var">neighbors</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span id="local-6989586621680952874"><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952874"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680952873"><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952873"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[UnVarSet] -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#unionUnVarSets"><span class="hs-identifier hs-var">unionUnVarSets</span></a></span><span> </span><span class="annot"><span class="annottext">([UnVarSet] -&gt; UnVarSet) -&gt; [UnVarSet] -&gt; UnVarSet
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Gen -&gt; [UnVarSet]) -&gt; [Gen] -&gt; [UnVarSet]
+forall (t :: * -&gt; *) a b. Foldable t =&gt; (a -&gt; [b]) -&gt; t a -&gt; [b]
+</span><a href="../../base/src/Data.Foldable.html#concatMap"><span class="hs-identifier hs-var">concatMap</span></a></span><span> </span><span class="annot"><span class="annottext">Gen -&gt; [UnVarSet]
+</span><a href="#local-6989586621680952871"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">([Gen] -&gt; [UnVarSet]) -&gt; [Gen] -&gt; [UnVarSet]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; [Gen]
+forall a. Bag a -&gt; [a]
+</span><a href="GHC.Data.Bag.html#bagToList"><span class="hs-identifier hs-var">bagToList</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952874"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-120"></span><span>  </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621680952871"><span class="annot"><span class="annottext">go :: Gen -&gt; [UnVarSet]
+</span><a href="#local-6989586621680952871"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CG"><span class="hs-identifier hs-type">CG</span></a></span><span> </span><span id="local-6989586621680952869"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952869"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952873"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Var -&gt; UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-operator hs-var">`elemUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952869"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952869"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>        </span><span class="annot"><a href="#local-6989586621680952871"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CBPG"><span class="hs-identifier hs-type">CBPG</span></a></span><span> </span><span id="local-6989586621680952868"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952868"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621680952867"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952867"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952873"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Var -&gt; UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-operator hs-var">`elemUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952868"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952867"><span class="hs-identifier hs-var">s2</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[UnVarSet] -&gt; [UnVarSet] -&gt; [UnVarSet]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><a href="../../base/src/GHC.Base.html#%2B%2B"><span class="hs-operator hs-var">++</span></a></span><span>
+</span><span id="line-122"></span><span>                          </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952873"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Var -&gt; UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-operator hs-var">`elemUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952867"><span class="hs-identifier hs-var">s2</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952868"><span class="hs-identifier hs-var">s1</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-keyword">else</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- hasLoopAt G v &lt;=&gt; v--v &#8712; G</span><span>
+</span><span id="line-125"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#hasLoopAt"><span class="hs-identifier hs-type">hasLoopAt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Var.html#Var"><span class="hs-identifier hs-type">Var</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-126"></span><span id="hasLoopAt"><span class="annot"><span class="annottext">hasLoopAt :: UnVarGraph -&gt; Var -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#hasLoopAt"><span class="hs-identifier hs-var hs-var">hasLoopAt</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span id="local-6989586621680952866"><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952866"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680952865"><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952865"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Gen -&gt; Bool) -&gt; [Gen] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
+</span><a href="../../base/src/Data.Foldable.html#any"><span class="hs-identifier hs-var">any</span></a></span><span> </span><span class="annot"><span class="annottext">Gen -&gt; Bool
+</span><a href="#local-6989586621680952863"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">([Gen] -&gt; Bool) -&gt; [Gen] -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; [Gen]
+forall a. Bag a -&gt; [a]
+</span><a href="GHC.Data.Bag.html#bagToList"><span class="hs-identifier hs-var">bagToList</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952866"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-127"></span><span>  </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621680952863"><span class="annot"><span class="annottext">go :: Gen -&gt; Bool
+</span><a href="#local-6989586621680952863"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CG"><span class="hs-identifier hs-type">CG</span></a></span><span> </span><span id="local-6989586621680952862"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952862"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952865"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Var -&gt; UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-operator hs-var">`elemUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952862"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-128"></span><span>        </span><span class="annot"><a href="#local-6989586621680952863"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CBPG"><span class="hs-identifier hs-type">CBPG</span></a></span><span> </span><span id="local-6989586621680952861"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952861"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621680952860"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952860"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952865"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Var -&gt; UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-operator hs-var">`elemUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952861"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952865"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Var -&gt; UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#elemUnVarSet"><span class="hs-operator hs-var">`elemUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952860"><span class="hs-identifier hs-var">s2</span></a></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#delNode"><span class="hs-identifier hs-type">delNode</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Var.html#Var"><span class="hs-identifier hs-type">Var</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span>
+</span><span id="line-132"></span><span id="delNode"><span class="annot"><span class="annottext">delNode :: UnVarGraph -&gt; Var -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#delNode"><span class="hs-identifier hs-var hs-var">delNode</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span id="local-6989586621680952858"><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952858"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680952857"><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952857"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnVarGraph -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#prune"><span class="hs-identifier hs-var">prune</span></a></span><span> </span><span class="annot"><span class="annottext">(UnVarGraph -&gt; UnVarGraph) -&gt; UnVarGraph -&gt; UnVarGraph
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-var">UnVarGraph</span></a></span><span> </span><span class="annot"><span class="annottext">(Bag Gen -&gt; UnVarGraph) -&gt; Bag Gen -&gt; UnVarGraph
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Gen -&gt; Gen) -&gt; Bag Gen -&gt; Bag Gen
+forall a b. (a -&gt; b) -&gt; Bag a -&gt; Bag b
+</span><a href="GHC.Data.Bag.html#mapBag"><span class="hs-identifier hs-var">mapBag</span></a></span><span> </span><span class="annot"><span class="annottext">Gen -&gt; Gen
+</span><a href="#local-6989586621680952855"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952858"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-133"></span><span>  </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621680952855"><span class="annot"><span class="annottext">go :: Gen -&gt; Gen
+</span><a href="#local-6989586621680952855"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CG"><span class="hs-identifier hs-type">CG</span></a></span><span> </span><span id="local-6989586621680952854"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952854"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; Gen
+</span><a href="GHC.Data.Graph.UnVar.html#CG"><span class="hs-identifier hs-var">CG</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952854"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; Var -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#delUnVarSet"><span class="hs-operator hs-var">`delUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952857"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span>        </span><span class="annot"><a href="#local-6989586621680952855"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CBPG"><span class="hs-identifier hs-type">CBPG</span></a></span><span> </span><span id="local-6989586621680952853"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952853"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621680952852"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952852"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; UnVarSet -&gt; Gen
+</span><a href="GHC.Data.Graph.UnVar.html#CBPG"><span class="hs-identifier hs-var">CBPG</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952853"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; Var -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#delUnVarSet"><span class="hs-operator hs-var">`delUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952857"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952852"><span class="hs-identifier hs-var">s2</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; Var -&gt; UnVarSet
+</span><a href="GHC.Data.Graph.UnVar.html#delUnVarSet"><span class="hs-operator hs-var">`delUnVarSet`</span></a></span><span> </span><span class="annot"><span class="annottext">Var
+</span><a href="#local-6989586621680952857"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#prune"><span class="hs-identifier hs-type">prune</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span>
+</span><span id="line-137"></span><span id="prune"><span class="annot"><span class="annottext">prune :: UnVarGraph -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#prune"><span class="hs-identifier hs-var hs-var">prune</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span id="local-6989586621680952851"><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952851"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; UnVarGraph
+</span><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-var">UnVarGraph</span></a></span><span> </span><span class="annot"><span class="annottext">(Bag Gen -&gt; UnVarGraph) -&gt; Bag Gen -&gt; UnVarGraph
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Gen -&gt; Bool) -&gt; Bag Gen -&gt; Bag Gen
+forall a. (a -&gt; Bool) -&gt; Bag a -&gt; Bag a
+</span><a href="GHC.Data.Bag.html#filterBag"><span class="hs-identifier hs-var">filterBag</span></a></span><span> </span><span class="annot"><span class="annottext">Gen -&gt; Bool
+</span><a href="#local-6989586621680952849"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952851"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-138"></span><span>  </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621680952849"><span class="annot"><span class="annottext">go :: Gen -&gt; Bool
+</span><a href="#local-6989586621680952849"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CG"><span class="hs-identifier hs-type">CG</span></a></span><span> </span><span id="local-6989586621680952848"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952848"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#isEmptyUnVarSet"><span class="hs-identifier hs-var">isEmptyUnVarSet</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952848"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-139"></span><span>        </span><span class="annot"><a href="#local-6989586621680952849"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CBPG"><span class="hs-identifier hs-type">CBPG</span></a></span><span> </span><span id="local-6989586621680952846"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952846"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621680952845"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952845"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#isEmptyUnVarSet"><span class="hs-identifier hs-var">isEmptyUnVarSet</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952846"><span class="hs-identifier hs-var">s1</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UnVarSet -&gt; Bool
+</span><a href="GHC.Data.Graph.UnVar.html#isEmptyUnVarSet"><span class="hs-identifier hs-var">isEmptyUnVarSet</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952845"><span class="hs-identifier hs-var">s2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680952842"><span class="annot"><a href="GHC.Utils.Outputable.html#Outputable"><span class="hs-identifier hs-type">Outputable</span></a></span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#Gen"><span class="hs-identifier hs-type">Gen</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-142"></span><span>    </span><span id="local-6989586621680952838"><span class="annot"><span class="annottext">ppr :: Gen -&gt; SDoc
+</span><a href="#local-6989586621680952838"><span class="hs-identifier hs-var hs-var hs-var hs-var">ppr</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CG"><span class="hs-identifier hs-type">CG</span></a></span><span> </span><span id="local-6989586621680952837"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952837"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier hs-var">ppr</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952837"><span class="hs-identifier hs-var">s</span></a></span><span>  </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#char"><span class="hs-identifier hs-var">char</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'&#178;'</span></span><span>
+</span><span id="line-143"></span><span>    </span><span class="annot"><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier hs-var">ppr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#CBPG"><span class="hs-identifier hs-type">CBPG</span></a></span><span> </span><span id="local-6989586621680952834"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952834"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span id="local-6989586621680952833"><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952833"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier hs-var">ppr</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952834"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#%3C%2B%3E"><span class="hs-operator hs-var">&lt;+&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#char"><span class="hs-identifier hs-var">char</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">'x'</span></span><span> </span><span class="annot"><span class="annottext">SDoc -&gt; SDoc -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#%3C%2B%3E"><span class="hs-operator hs-var">&lt;+&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier hs-var">ppr</span></a></span><span> </span><span class="annot"><span class="annottext">UnVarSet
+</span><a href="#local-6989586621680952833"><span class="hs-identifier hs-var">s2</span></a></span><span>
+</span><span id="line-144"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680952829"><span class="annot"><a href="GHC.Utils.Outputable.html#Outputable"><span class="hs-identifier hs-type">Outputable</span></a></span><span> </span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-145"></span><span>    </span><span id="local-6989586621680952825"><span class="annot"><span class="annottext">ppr :: UnVarGraph -&gt; SDoc
+</span><a href="#local-6989586621680952825"><span class="hs-identifier hs-var hs-var hs-var hs-var">ppr</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.Graph.UnVar.html#UnVarGraph"><span class="hs-identifier hs-type">UnVarGraph</span></a></span><span> </span><span id="local-6989586621680952824"><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952824"><span class="hs-identifier hs-var">g</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bag Gen -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier hs-var">ppr</span></a></span><span> </span><span class="annot"><span class="annottext">Bag Gen
+</span><a href="#local-6989586621680952824"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-146"></span></pre></body></html>

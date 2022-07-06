@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ViewPatterns #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.Rename.Doc</span><span> </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.Rename.Doc.html#rnHsDoc"><span class="hs-identifier">rnHsDoc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Rename.Doc.html#rnLHsDoc"><span class="hs-identifier">rnLHsDoc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Rename.Doc.html#rnMbLHsDoc"><span class="hs-identifier">rnMbLHsDoc</span></a></span><span> </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Prelude.html"><span class="hs-identifier">GHC.Prelude</span></a></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Tc.Types.html"><span class="hs-identifier">GHC.Tc.Types</span></a></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Hs.html"><span class="hs-identifier">GHC.Hs</span></a></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.SrcLoc.html"><span class="hs-identifier">GHC.Types.SrcLoc</span></a></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="annot"><a href="GHC.Rename.Doc.html#rnMbLHsDoc"><span class="hs-identifier hs-type">rnMbLHsDoc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="GHC.Hs.Doc.html#LHsDocString"><span class="hs-identifier hs-type">LHsDocString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Tc.Types.html#RnM"><span class="hs-identifier hs-type">RnM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="GHC.Hs.Doc.html#LHsDocString"><span class="hs-identifier hs-type">LHsDocString</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span id="rnMbLHsDoc"><span class="annot"><span class="annottext">rnMbLHsDoc :: Maybe LHsDocString -&gt; RnM (Maybe LHsDocString)
+</span><a href="GHC.Rename.Doc.html#rnMbLHsDoc"><span class="hs-identifier hs-var hs-var">rnMbLHsDoc</span></a></span></span><span> </span><span id="local-6989586621680973271"><span class="annot"><span class="annottext">Maybe LHsDocString
+</span><a href="#local-6989586621680973271"><span class="hs-identifier hs-var">mb_doc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe LHsDocString
+</span><a href="#local-6989586621680973271"><span class="hs-identifier hs-var">mb_doc</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680973270"><span class="annot"><span class="annottext">LHsDocString
+</span><a href="#local-6989586621680973270"><span class="hs-identifier hs-var">doc</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-15"></span><span>    </span><span id="local-6989586621680973269"><span class="annot"><span class="annottext">LHsDocString
+</span><a href="#local-6989586621680973269"><span class="hs-identifier hs-var">doc'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">LHsDocString -&gt; RnM LHsDocString
+</span><a href="GHC.Rename.Doc.html#rnLHsDoc"><span class="hs-identifier hs-var">rnLHsDoc</span></a></span><span> </span><span class="annot"><span class="annottext">LHsDocString
+</span><a href="#local-6989586621680973270"><span class="hs-identifier hs-var">doc</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="annottext">Maybe LHsDocString -&gt; RnM (Maybe LHsDocString)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LHsDocString -&gt; Maybe LHsDocString
+forall a. a -&gt; Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">LHsDocString
+</span><a href="#local-6989586621680973269"><span class="hs-identifier hs-var">doc'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="annottext">Maybe LHsDocString
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe LHsDocString -&gt; RnM (Maybe LHsDocString)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe LHsDocString
+forall a. Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="annot"><a href="GHC.Rename.Doc.html#rnLHsDoc"><span class="hs-identifier hs-type">rnLHsDoc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Hs.Doc.html#LHsDocString"><span class="hs-identifier hs-type">LHsDocString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Tc.Types.html#RnM"><span class="hs-identifier hs-type">RnM</span></a></span><span> </span><span class="annot"><a href="GHC.Hs.Doc.html#LHsDocString"><span class="hs-identifier hs-type">LHsDocString</span></a></span><span>
+</span><span id="line-20"></span><span id="rnLHsDoc"><span class="annot"><span class="annottext">rnLHsDoc :: LHsDocString -&gt; RnM LHsDocString
+</span><a href="GHC.Rename.Doc.html#rnLHsDoc"><span class="hs-identifier hs-var hs-var">rnLHsDoc</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Types.SrcLoc.html#L"><span class="hs-identifier hs-type">L</span></a></span><span> </span><span id="local-6989586621680973267"><span class="annot"><span class="annottext">SrcSpan
+</span><a href="#local-6989586621680973267"><span class="hs-identifier hs-var">pos</span></a></span></span><span> </span><span id="local-6989586621680973266"><span class="annot"><span class="annottext">HsDocString
+</span><a href="#local-6989586621680973266"><span class="hs-identifier hs-var">doc</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-21"></span><span>  </span><span id="local-6989586621680973265"><span class="annot"><span class="annottext">HsDocString
+</span><a href="#local-6989586621680973265"><span class="hs-identifier hs-var">doc'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HsDocString -&gt; RnM HsDocString
+</span><a href="GHC.Rename.Doc.html#rnHsDoc"><span class="hs-identifier hs-var">rnHsDoc</span></a></span><span> </span><span class="annot"><span class="annottext">HsDocString
+</span><a href="#local-6989586621680973266"><span class="hs-identifier hs-var">doc</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="annottext">LHsDocString -&gt; RnM LHsDocString
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SrcSpan -&gt; HsDocString -&gt; LHsDocString
+forall l e. l -&gt; e -&gt; GenLocated l e
+</span><a href="GHC.Types.SrcLoc.html#L"><span class="hs-identifier hs-var">L</span></a></span><span> </span><span class="annot"><span class="annottext">SrcSpan
+</span><a href="#local-6989586621680973267"><span class="hs-identifier hs-var">pos</span></a></span><span> </span><span class="annot"><span class="annottext">HsDocString
+</span><a href="#local-6989586621680973265"><span class="hs-identifier hs-var">doc'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="annot"><a href="GHC.Rename.Doc.html#rnHsDoc"><span class="hs-identifier hs-type">rnHsDoc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Hs.Doc.html#HsDocString"><span class="hs-identifier hs-type">HsDocString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Tc.Types.html#RnM"><span class="hs-identifier hs-type">RnM</span></a></span><span> </span><span class="annot"><a href="GHC.Hs.Doc.html#HsDocString"><span class="hs-identifier hs-type">HsDocString</span></a></span><span>
+</span><span id="line-25"></span><span id="rnHsDoc"><span class="annot"><span class="annottext">rnHsDoc :: HsDocString -&gt; RnM HsDocString
+</span><a href="GHC.Rename.Doc.html#rnHsDoc"><span class="hs-identifier hs-var hs-var">rnHsDoc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HsDocString -&gt; RnM HsDocString
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="../../base/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
+</span><span id="line-26"></span></pre></body></html>

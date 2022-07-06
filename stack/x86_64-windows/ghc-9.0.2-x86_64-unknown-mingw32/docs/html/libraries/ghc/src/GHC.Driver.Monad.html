@@ -1,0 +1,649 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP, DeriveFunctor, DerivingVia, RankNTypes #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -funbox-strict-fields #-}</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- (c) The University of Glasgow, 2010</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- The Session type and related functionality</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.Driver.Monad</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-12"></span><span>        </span><span class="annot"><span class="hs-comment">-- * 'Ghc' monad stuff</span></span><span>
+</span><span id="line-13"></span><span>        </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier">GhcMonad</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>        </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier">Ghc</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>        </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier">GhcT</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#liftGhcT"><span class="hs-identifier">liftGhcT</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>        </span><span class="annot"><a href="GHC.Driver.Monad.html#reflectGhc"><span class="hs-identifier">reflectGhc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#reifyGhc"><span class="hs-identifier">reifyGhc</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>        </span><span class="annot"><a href="GHC.Driver.Monad.html#getSessionDynFlags"><span class="hs-identifier">getSessionDynFlags</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>        </span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier">liftIO</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>        </span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier">Session</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#withSession"><span class="hs-identifier">withSession</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#modifySession"><span class="hs-identifier">modifySession</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#withTempSession"><span class="hs-identifier">withTempSession</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span>        </span><span class="annot"><span class="hs-comment">-- ** Warnings</span></span><span>
+</span><span id="line-22"></span><span>        </span><span class="annot"><a href="GHC.Driver.Monad.html#logWarnings"><span class="hs-identifier">logWarnings</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#printException"><span class="hs-identifier">printException</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>        </span><span class="annot"><a href="GHC.Driver.Monad.html#WarnErrLogger"><span class="hs-identifier">WarnErrLogger</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#defaultWarnErrLogger"><span class="hs-identifier">defaultWarnErrLogger</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Prelude.html"><span class="hs-identifier">GHC.Prelude</span></a></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Utils.Monad.html"><span class="hs-identifier">GHC.Utils.Monad</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Driver.Types.html"><span class="hs-identifier">GHC.Driver.Types</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html"><span class="hs-identifier">GHC.Driver.Session</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Utils.Exception.html"><span class="hs-identifier">GHC.Utils.Exception</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Utils.Error.html"><span class="hs-identifier">GHC.Utils.Error</span></a></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.html#"><span class="hs-identifier">Control.Monad</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../exceptions/src/Control.Monad.Catch.html#"><span class="hs-identifier">Control.Monad.Catch</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MC</span></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../transformers/src/Control.Monad.Trans.Reader.html#"><span class="hs-identifier">Control.Monad.Trans.Reader</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Data.IORef.html#"><span class="hs-identifier">Data.IORef</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- | A monad that has all the features needed by GHC API calls.</span><span>
+</span><span id="line-41"></span><span class="hs-comment">--</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- In short, a GHC monad</span><span>
+</span><span id="line-43"></span><span class="hs-comment">--</span><span>
+</span><span id="line-44"></span><span class="hs-comment">--   - allows embedding of IO actions,</span><span>
+</span><span id="line-45"></span><span class="hs-comment">--</span><span>
+</span><span id="line-46"></span><span class="hs-comment">--   - can log warnings,</span><span>
+</span><span id="line-47"></span><span class="hs-comment">--</span><span>
+</span><span id="line-48"></span><span class="hs-comment">--   - allows handling of (extensible) exceptions, and</span><span>
+</span><span id="line-49"></span><span class="hs-comment">--</span><span>
+</span><span id="line-50"></span><span class="hs-comment">--   - maintains a current session.</span><span>
+</span><span id="line-51"></span><span class="hs-comment">--</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- If you do not use 'Ghc' or 'GhcT', make sure to call 'GHC.initGhcMonad'</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- before any call to the GHC API functions can occur.</span><span>
+</span><span id="line-54"></span><span class="hs-comment">--</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">class</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Base.html#Functor"><span class="hs-identifier hs-type">Functor</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932069"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Utils.Exception.html#ExceptionMonad"><span class="hs-identifier hs-type">ExceptionMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932069"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html#HasDynFlags"><span class="hs-identifier hs-type">HasDynFlags</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932069"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="GhcMonad"><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-var">GhcMonad</span></a></span></span><span> </span><span id="local-6989586621680932069"><span class="annot"><a href="#local-6989586621680932069"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-56"></span><span>  </span><span id="getSession"><span class="annot"><a href="GHC.Driver.Monad.html#getSession"><span class="hs-identifier hs-type">getSession</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680932069"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Types.html#HscEnv"><span class="hs-identifier hs-type">HscEnv</span></a></span><span>
+</span><span id="line-57"></span><span>  </span><span id="setSession"><span class="annot"><a href="GHC.Driver.Monad.html#setSession"><span class="hs-identifier hs-type">setSession</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Types.html#HscEnv"><span class="hs-identifier hs-type">HscEnv</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932069"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- | Call the argument with the current session.</span><span>
+</span><span id="line-60"></span><span id="local-6989586621680932063"><span id="local-6989586621680932065"><span class="annot"><a href="GHC.Driver.Monad.html#withSession"><span class="hs-identifier hs-type">withSession</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932065"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Types.html#HscEnv"><span class="hs-identifier hs-type">HscEnv</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932065"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932063"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932065"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932063"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-61"></span><span id="withSession"><span class="annot"><span class="annottext">withSession :: forall (m :: * -&gt; *) a. GhcMonad m =&gt; (HscEnv -&gt; m a) -&gt; m a
+</span><a href="GHC.Driver.Monad.html#withSession"><span class="hs-identifier hs-var hs-var">withSession</span></a></span></span><span> </span><span id="local-6989586621680931862"><span class="annot"><span class="annottext">HscEnv -&gt; m a
+</span><a href="#local-6989586621680931862"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m HscEnv
+forall (m :: * -&gt; *). GhcMonad m =&gt; m HscEnv
+</span><a href="GHC.Driver.Monad.html#getSession"><span class="hs-identifier hs-var">getSession</span></a></span><span> </span><span class="annot"><span class="annottext">m HscEnv -&gt; (HscEnv -&gt; m a) -&gt; m a
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv -&gt; m a
+</span><a href="#local-6989586621680931862"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- | Grabs the DynFlags from the Session</span><span>
+</span><span id="line-64"></span><span id="local-6989586621680932049"><span class="annot"><a href="GHC.Driver.Monad.html#getSessionDynFlags"><span class="hs-identifier hs-type">getSessionDynFlags</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932049"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932049"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Session.html#DynFlags"><span class="hs-identifier hs-type">DynFlags</span></a></span></span><span>
+</span><span id="line-65"></span><span id="getSessionDynFlags"><span class="annot"><span class="annottext">getSessionDynFlags :: forall (m :: * -&gt; *). GhcMonad m =&gt; m DynFlags
+</span><a href="GHC.Driver.Monad.html#getSessionDynFlags"><span class="hs-identifier hs-var hs-var">getSessionDynFlags</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(HscEnv -&gt; m DynFlags) -&gt; m DynFlags
+forall (m :: * -&gt; *) a. GhcMonad m =&gt; (HscEnv -&gt; m a) -&gt; m a
+</span><a href="GHC.Driver.Monad.html#withSession"><span class="hs-identifier hs-var">withSession</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DynFlags -&gt; m DynFlags
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">(DynFlags -&gt; m DynFlags)
+-&gt; (HscEnv -&gt; DynFlags) -&gt; HscEnv -&gt; m DynFlags
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv -&gt; DynFlags
+</span><a href="GHC.Driver.Types.html#hsc_dflags"><span class="hs-identifier hs-var hs-var">hsc_dflags</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- | Set the current session to the result of applying the current session to</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- the argument.</span><span>
+</span><span id="line-69"></span><span id="local-6989586621680932042"><span class="annot"><a href="GHC.Driver.Monad.html#modifySession"><span class="hs-identifier hs-type">modifySession</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932042"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Types.html#HscEnv"><span class="hs-identifier hs-type">HscEnv</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Types.html#HscEnv"><span class="hs-identifier hs-type">HscEnv</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932042"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-70"></span><span id="modifySession"><span class="annot"><span class="annottext">modifySession :: forall (m :: * -&gt; *). GhcMonad m =&gt; (HscEnv -&gt; HscEnv) -&gt; m ()
+</span><a href="GHC.Driver.Monad.html#modifySession"><span class="hs-identifier hs-var hs-var">modifySession</span></a></span></span><span> </span><span id="local-6989586621680931844"><span class="annot"><span class="annottext">HscEnv -&gt; HscEnv
+</span><a href="#local-6989586621680931844"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621680931843"><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621680931843"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m HscEnv
+forall (m :: * -&gt; *). GhcMonad m =&gt; m HscEnv
+</span><a href="GHC.Driver.Monad.html#getSession"><span class="hs-identifier hs-var">getSession</span></a></span><span>
+</span><span id="line-71"></span><span>                     </span><span class="annot"><span class="annottext">HscEnv -&gt; m ()
+forall (m :: * -&gt; *). GhcMonad m =&gt; HscEnv -&gt; m ()
+</span><a href="GHC.Driver.Monad.html#setSession"><span class="hs-identifier hs-var">setSession</span></a></span><span> </span><span class="annot"><span class="annottext">(HscEnv -&gt; m ()) -&gt; HscEnv -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24%21"><span class="hs-operator hs-var">$!</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv -&gt; HscEnv
+</span><a href="#local-6989586621680931844"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621680931843"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span id="local-6989586621680932036"><span id="local-6989586621680932037"><span class="annot"><a href="GHC.Driver.Monad.html#withSavedSession"><span class="hs-identifier hs-type">withSavedSession</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932037"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932037"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932036"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932037"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932036"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-74"></span><span id="withSavedSession"><span class="annot"><span class="annottext">withSavedSession :: forall (m :: * -&gt; *) a. GhcMonad m =&gt; m a -&gt; m a
+</span><a href="GHC.Driver.Monad.html#withSavedSession"><span class="hs-identifier hs-var hs-var">withSavedSession</span></a></span></span><span> </span><span id="local-6989586621680931829"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621680931829"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-75"></span><span>  </span><span id="local-6989586621680931828"><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621680931828"><span class="hs-identifier hs-var">saved_session</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m HscEnv
+forall (m :: * -&gt; *). GhcMonad m =&gt; m HscEnv
+</span><a href="GHC.Driver.Monad.html#getSession"><span class="hs-identifier hs-var">getSession</span></a></span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621680931829"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">m a -&gt; m () -&gt; m a
+forall (m :: * -&gt; *) a b. MonadMask m =&gt; m a -&gt; m b -&gt; m a
+</span><a href="../../exceptions/src/Control.Monad.Catch.html#finally"><span class="hs-operator hs-var">`MC.finally`</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv -&gt; m ()
+forall (m :: * -&gt; *). GhcMonad m =&gt; HscEnv -&gt; m ()
+</span><a href="GHC.Driver.Monad.html#setSession"><span class="hs-identifier hs-var">setSession</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621680931828"><span class="hs-identifier hs-var">saved_session</span></a></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | Call an action with a temporarily modified Session.</span><span>
+</span><span id="line-79"></span><span id="local-6989586621680932028"><span id="local-6989586621680932029"><span class="annot"><a href="GHC.Driver.Monad.html#withTempSession"><span class="hs-identifier hs-type">withTempSession</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932029"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Types.html#HscEnv"><span class="hs-identifier hs-type">HscEnv</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Types.html#HscEnv"><span class="hs-identifier hs-type">HscEnv</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932029"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932028"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932029"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932028"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-80"></span><span id="withTempSession"><span class="annot"><span class="annottext">withTempSession :: forall (m :: * -&gt; *) a.
+GhcMonad m =&gt;
+(HscEnv -&gt; HscEnv) -&gt; m a -&gt; m a
+</span><a href="GHC.Driver.Monad.html#withTempSession"><span class="hs-identifier hs-var hs-var">withTempSession</span></a></span></span><span> </span><span id="local-6989586621680931818"><span class="annot"><span class="annottext">HscEnv -&gt; HscEnv
+</span><a href="#local-6989586621680931818"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621680931817"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621680931817"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-81"></span><span>  </span><span class="annot"><span class="annottext">m a -&gt; m a
+forall (m :: * -&gt; *) a. GhcMonad m =&gt; m a -&gt; m a
+</span><a href="GHC.Driver.Monad.html#withSavedSession"><span class="hs-identifier hs-var">withSavedSession</span></a></span><span> </span><span class="annot"><span class="annottext">(m a -&gt; m a) -&gt; m a -&gt; m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(HscEnv -&gt; HscEnv) -&gt; m ()
+forall (m :: * -&gt; *). GhcMonad m =&gt; (HscEnv -&gt; HscEnv) -&gt; m ()
+</span><a href="GHC.Driver.Monad.html#modifySession"><span class="hs-identifier hs-var">modifySession</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv -&gt; HscEnv
+</span><a href="#local-6989586621680931818"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m a -&gt; m a
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621680931817"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- | A monad that allows logging of warnings.</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span id="local-6989586621680932023"><span class="annot"><a href="GHC.Driver.Monad.html#logWarnings"><span class="hs-identifier hs-type">logWarnings</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680932023"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="GHC.Utils.Error.html#WarningMessages"><span class="hs-identifier hs-type">WarningMessages</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680932023"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-87"></span><span id="logWarnings"><span class="annot"><span class="annottext">logWarnings :: forall (m :: * -&gt; *). GhcMonad m =&gt; WarningMessages -&gt; m ()
+</span><a href="GHC.Driver.Monad.html#logWarnings"><span class="hs-identifier hs-var hs-var">logWarnings</span></a></span></span><span> </span><span id="local-6989586621680931806"><span class="annot"><span class="annottext">WarningMessages
+</span><a href="#local-6989586621680931806"><span class="hs-identifier hs-var">warns</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-88"></span><span>  </span><span id="local-6989586621680931805"><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621680931805"><span class="hs-identifier hs-var">dflags</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m DynFlags
+forall (m :: * -&gt; *). GhcMonad m =&gt; m DynFlags
+</span><a href="GHC.Driver.Monad.html#getSessionDynFlags"><span class="hs-identifier hs-var">getSessionDynFlags</span></a></span><span>
+</span><span id="line-89"></span><span>  </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; IO () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; WarningMessages -&gt; IO ()
+</span><a href="GHC.Driver.Types.html#printOrThrowWarnings"><span class="hs-identifier hs-var">printOrThrowWarnings</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621680931805"><span class="hs-identifier hs-var">dflags</span></a></span><span> </span><span class="annot"><span class="annottext">WarningMessages
+</span><a href="#local-6989586621680931806"><span class="hs-identifier hs-var">warns</span></a></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- | A minimal implementation of a 'GhcMonad'.  If you need a custom monad,</span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- e.g., to maintain additional state consider wrapping this monad or using</span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- 'GhcT'.</span><span>
+</span><span id="line-95"></span><span class="hs-keyword">newtype</span><span> </span><span id="Ghc"><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span></span><span> </span><span id="local-6989586621680932017"><span class="annot"><a href="#local-6989586621680932017"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Ghc"><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unGhc"><span class="annot"><span class="annottext">forall a. Ghc a -&gt; Session -&gt; IO a
+</span><a href="GHC.Driver.Monad.html#unGhc"><span class="hs-identifier hs-var hs-var">unGhc</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621680932017"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-96"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680931796"><span id="local-6989586621680931800"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; Ghc a -&gt; Ghc b)
+-&gt; (forall a b. a -&gt; Ghc b -&gt; Ghc a) -&gt; Functor Ghc
+forall a b. a -&gt; Ghc b -&gt; Ghc a
+forall a b. (a -&gt; b) -&gt; Ghc a -&gt; Ghc b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: forall a b. a -&gt; Ghc b -&gt; Ghc a
+$c&lt;$ :: forall a b. a -&gt; Ghc b -&gt; Ghc a
+fmap :: forall a b. (a -&gt; b) -&gt; Ghc a -&gt; Ghc b
+$cfmap :: forall a b. (a -&gt; b) -&gt; Ghc a -&gt; Ghc b
+</span><a href="../../base/src/GHC.Base.html#Functor"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680931787"><span class="annot"><span class="annottext">Monad Ghc
+Monad Ghc
+-&gt; (forall e a. Exception e =&gt; e -&gt; Ghc a) -&gt; MonadThrow Ghc
+forall e a. Exception e =&gt; e -&gt; Ghc a
+forall (m :: * -&gt; *).
+Monad m -&gt; (forall e a. Exception e =&gt; e -&gt; m a) -&gt; MonadThrow m
+throwM :: forall e a. Exception e =&gt; e -&gt; Ghc a
+$cthrowM :: forall e a. Exception e =&gt; e -&gt; Ghc a
+</span><a href="../../exceptions/src/Control.Monad.Catch.html#C%3AMonadThrow"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadThrow</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680931772"><span class="annot"><span class="annottext">MonadThrow Ghc
+MonadThrow Ghc
+-&gt; (forall e a. Exception e =&gt; Ghc a -&gt; (e -&gt; Ghc a) -&gt; Ghc a)
+-&gt; MonadCatch Ghc
+forall e a. Exception e =&gt; Ghc a -&gt; (e -&gt; Ghc a) -&gt; Ghc a
+forall (m :: * -&gt; *).
+MonadThrow m
+-&gt; (forall e a. Exception e =&gt; m a -&gt; (e -&gt; m a) -&gt; m a)
+-&gt; MonadCatch m
+catch :: forall e a. Exception e =&gt; Ghc a -&gt; (e -&gt; Ghc a) -&gt; Ghc a
+$ccatch :: forall e a. Exception e =&gt; Ghc a -&gt; (e -&gt; Ghc a) -&gt; Ghc a
+</span><a href="../../exceptions/src/Control.Monad.Catch.html#C%3AMonadCatch"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadCatch</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680931748"><span id="local-6989586621680931753"><span id="local-6989586621680931759"><span class="annot"><span class="annottext">MonadCatch Ghc
+MonadCatch Ghc
+-&gt; (forall b. ((forall a. Ghc a -&gt; Ghc a) -&gt; Ghc b) -&gt; Ghc b)
+-&gt; (forall b. ((forall a. Ghc a -&gt; Ghc a) -&gt; Ghc b) -&gt; Ghc b)
+-&gt; (forall a b c.
+    Ghc a -&gt; (a -&gt; ExitCase b -&gt; Ghc c) -&gt; (a -&gt; Ghc b) -&gt; Ghc (b, c))
+-&gt; MonadMask Ghc
+forall b. ((forall a. Ghc a -&gt; Ghc a) -&gt; Ghc b) -&gt; Ghc b
+forall a b c.
+Ghc a -&gt; (a -&gt; ExitCase b -&gt; Ghc c) -&gt; (a -&gt; Ghc b) -&gt; Ghc (b, c)
+forall (m :: * -&gt; *).
+MonadCatch m
+-&gt; (forall b. ((forall a. m a -&gt; m a) -&gt; m b) -&gt; m b)
+-&gt; (forall b. ((forall a. m a -&gt; m a) -&gt; m b) -&gt; m b)
+-&gt; (forall a b c.
+    m a -&gt; (a -&gt; ExitCase b -&gt; m c) -&gt; (a -&gt; m b) -&gt; m (b, c))
+-&gt; MonadMask m
+generalBracket :: forall a b c.
+Ghc a -&gt; (a -&gt; ExitCase b -&gt; Ghc c) -&gt; (a -&gt; Ghc b) -&gt; Ghc (b, c)
+$cgeneralBracket :: forall a b c.
+Ghc a -&gt; (a -&gt; ExitCase b -&gt; Ghc c) -&gt; (a -&gt; Ghc b) -&gt; Ghc (b, c)
+uninterruptibleMask :: forall b. ((forall a. Ghc a -&gt; Ghc a) -&gt; Ghc b) -&gt; Ghc b
+$cuninterruptibleMask :: forall b. ((forall a. Ghc a -&gt; Ghc a) -&gt; Ghc b) -&gt; Ghc b
+mask :: forall b. ((forall a. Ghc a -&gt; Ghc a) -&gt; Ghc b) -&gt; Ghc b
+$cmask :: forall b. ((forall a. Ghc a -&gt; Ghc a) -&gt; Ghc b) -&gt; Ghc b
+</span><a href="../../exceptions/src/Control.Monad.Catch.html#C%3AMonadMask"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">MonadMask</span></a></span></span></span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">via</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../transformers/src/Control.Monad.Trans.Reader.html#ReaderT"><span class="hs-identifier hs-type">ReaderT</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- | The Session is a handle to the complete state of a compilation</span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- session.  A compilation session consists of a set of modules</span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- constituting the current program or library, the context for</span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- interactive evaluation, and various caches.</span><span>
+</span><span id="line-103"></span><span class="hs-keyword">data</span><span> </span><span id="Session"><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-var">Session</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Session"><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-var">Session</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.IORef.html#IORef"><span class="hs-identifier hs-type">IORef</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Types.html#HscEnv"><span class="hs-identifier hs-type">HscEnv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680931731"><span id="local-6989586621680931733"><span id="local-6989586621680931735"><span class="annot"><a href="../../base/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-type">Applicative</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-type">Ghc</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-106"></span><span>  </span><span id="local-6989586621680931727"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; Ghc a
+</span><a href="../../base/src/GHC.Base.html#pure"><span class="hs-identifier hs-var hs-var hs-var hs-var">pure</span></a></span></span><span> </span><span id="local-6989586621680931726"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931726"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; IO a) -&gt; Ghc a
+forall a. (Session -&gt; IO a) -&gt; Ghc a
+</span><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; IO a) -&gt; Ghc a) -&gt; (Session -&gt; IO a) -&gt; Ghc a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Session
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931726"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-107"></span><span>  </span><span id="local-6989586621680931722"><span class="annot"><span class="annottext">Ghc (a -&gt; b)
+</span><a href="#local-6989586621680931722"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621680931721"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. Ghc (a -&gt; b) -&gt; Ghc a -&gt; Ghc b
+</span><a href="../../base/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;*&gt;</span></a></span></span><span> </span><span id="local-6989586621680931720"><span class="annot"><span class="annottext">Ghc a
+</span><a href="#local-6989586621680931720"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621680931719"><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621680931719"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Ghc (a -&gt; b)
+</span><a href="#local-6989586621680931722"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">;</span><span> </span><span id="local-6989586621680931718"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931718"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Ghc a
+</span><a href="#local-6989586621680931720"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">;</span><span> </span><span class="annot"><span class="annottext">b -&gt; Ghc b
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621680931719"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931718"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680931711"><span id="local-6989586621680931713"><span class="annot"><a href="../../base/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-type">Ghc</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621680931708"><span class="annot"><span class="annottext">Ghc a
+</span><a href="#local-6989586621680931708"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621680931707"><span class="annot"><span class="annottext">&gt;&gt;= :: forall a b. Ghc a -&gt; (a -&gt; Ghc b) -&gt; Ghc b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var hs-var hs-var hs-var">&gt;&gt;=</span></a></span></span><span> </span><span id="local-6989586621680931706"><span class="annot"><span class="annottext">a -&gt; Ghc b
+</span><a href="#local-6989586621680931706"><span class="hs-identifier hs-var">g</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; IO b) -&gt; Ghc b
+forall a. (Session -&gt; IO a) -&gt; Ghc a
+</span><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; IO b) -&gt; Ghc b) -&gt; (Session -&gt; IO b) -&gt; Ghc b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680931705"><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931705"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621680931704"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931704"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Ghc a -&gt; Session -&gt; IO a
+forall a. Ghc a -&gt; Session -&gt; IO a
+</span><a href="GHC.Driver.Monad.html#unGhc"><span class="hs-identifier hs-var hs-var">unGhc</span></a></span><span> </span><span class="annot"><span class="annottext">Ghc a
+</span><a href="#local-6989586621680931708"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931705"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">;</span><span> </span><span class="annot"><span class="annottext">Ghc b -&gt; Session -&gt; IO b
+forall a. Ghc a -&gt; Session -&gt; IO a
+</span><a href="GHC.Driver.Monad.html#unGhc"><span class="hs-identifier hs-var hs-var">unGhc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Ghc b
+</span><a href="#local-6989586621680931706"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931704"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931705"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-type">Ghc</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-113"></span><span>  </span><span id="local-6989586621680931698"><span class="annot"><span class="annottext">liftIO :: forall a. IO a -&gt; Ghc a
+</span><a href="#local-6989586621680931698"><span class="hs-identifier hs-var hs-var hs-var hs-var">liftIO</span></a></span></span><span> </span><span id="local-6989586621680931697"><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621680931697"><span class="hs-identifier hs-var">ioA</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; IO a) -&gt; Ghc a
+forall a. (Session -&gt; IO a) -&gt; Ghc a
+</span><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; IO a) -&gt; Ghc a) -&gt; (Session -&gt; IO a) -&gt; Ghc a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Session
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621680931697"><span class="hs-identifier hs-var">ioA</span></a></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.Fix.html#MonadFix"><span class="hs-identifier hs-type">MonadFix</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-type">Ghc</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-116"></span><span>  </span><span id="local-6989586621680931689"><span class="annot"><span class="annottext">mfix :: forall a. (a -&gt; Ghc a) -&gt; Ghc a
+</span><a href="../../base/src/Control.Monad.Fix.html#mfix"><span class="hs-identifier hs-var hs-var hs-var hs-var">mfix</span></a></span></span><span> </span><span id="local-6989586621680931688"><span class="annot"><span class="annottext">a -&gt; Ghc a
+</span><a href="#local-6989586621680931688"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; IO a) -&gt; Ghc a
+forall a. (Session -&gt; IO a) -&gt; Ghc a
+</span><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; IO a) -&gt; Ghc a) -&gt; (Session -&gt; IO a) -&gt; Ghc a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680931687"><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931687"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(a -&gt; IO a) -&gt; IO a
+forall (m :: * -&gt; *) a. MonadFix m =&gt; (a -&gt; m a) -&gt; m a
+</span><a href="../../base/src/Control.Monad.Fix.html#mfix"><span class="hs-identifier hs-var">mfix</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621680931686"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931686"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Ghc a -&gt; Session -&gt; IO a
+forall a. Ghc a -&gt; Session -&gt; IO a
+</span><a href="GHC.Driver.Monad.html#unGhc"><span class="hs-identifier hs-var hs-var">unGhc</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Ghc a
+</span><a href="#local-6989586621680931688"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931686"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931687"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html#HasDynFlags"><span class="hs-identifier hs-type">HasDynFlags</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-type">Ghc</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-119"></span><span>  </span><span id="local-6989586621680931680"><span class="annot"><span class="annottext">getDynFlags :: Ghc DynFlags
+</span><a href="GHC.Driver.Session.html#getDynFlags"><span class="hs-identifier hs-var hs-var hs-var hs-var">getDynFlags</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ghc DynFlags
+forall (m :: * -&gt; *). GhcMonad m =&gt; m DynFlags
+</span><a href="GHC.Driver.Monad.html#getSessionDynFlags"><span class="hs-identifier hs-var">getSessionDynFlags</span></a></span><span>
+</span><span id="line-120"></span><span>
+</span><span id="line-121"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-type">Ghc</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-122"></span><span>  </span><span id="local-6989586621680931665"><span class="annot"><span class="annottext">getSession :: Ghc HscEnv
+</span><a href="#local-6989586621680931665"><span class="hs-identifier hs-var hs-var hs-var hs-var">getSession</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; IO HscEnv) -&gt; Ghc HscEnv
+forall a. (Session -&gt; IO a) -&gt; Ghc a
+</span><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; IO HscEnv) -&gt; Ghc HscEnv)
+-&gt; (Session -&gt; IO HscEnv) -&gt; Ghc HscEnv
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span id="local-6989586621680931664"><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931664"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IORef HscEnv -&gt; IO HscEnv
+forall a. IORef a -&gt; IO a
+</span><a href="../../base/src/GHC.IORef.html#readIORef"><span class="hs-identifier hs-var">readIORef</span></a></span><span> </span><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931664"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-123"></span><span>  </span><span id="local-6989586621680931662"><span class="annot"><span class="annottext">setSession :: HscEnv -&gt; Ghc ()
+</span><a href="#local-6989586621680931662"><span class="hs-identifier hs-var hs-var hs-var hs-var">setSession</span></a></span></span><span> </span><span id="local-6989586621680931661"><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621680931661"><span class="hs-identifier hs-var">s'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; IO ()) -&gt; Ghc ()
+forall a. (Session -&gt; IO a) -&gt; Ghc a
+</span><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; IO ()) -&gt; Ghc ()) -&gt; (Session -&gt; IO ()) -&gt; Ghc ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span id="local-6989586621680931660"><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931660"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IORef HscEnv -&gt; HscEnv -&gt; IO ()
+forall a. IORef a -&gt; a -&gt; IO ()
+</span><a href="../../base/src/GHC.IORef.html#writeIORef"><span class="hs-identifier hs-var">writeIORef</span></a></span><span> </span><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931660"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621680931661"><span class="hs-identifier hs-var">s'</span></a></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- | Reflect a computation in the 'Ghc' monad into the 'IO' monad.</span><span>
+</span><span id="line-126"></span><span class="hs-comment">--</span><span>
+</span><span id="line-127"></span><span class="hs-comment">-- You can use this to call functions returning an action in the 'Ghc' monad</span><span>
+</span><span id="line-128"></span><span class="hs-comment">-- inside an 'IO' action.  This is needed for some (too restrictive) callback</span><span>
+</span><span id="line-129"></span><span class="hs-comment">-- arguments of some library functions:</span><span>
+</span><span id="line-130"></span><span class="hs-comment">--</span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- &gt; libFunc :: String -&gt; (Int -&gt; IO a) -&gt; IO a</span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- &gt; ghcFunc :: Int -&gt; Ghc a</span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- &gt;</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- &gt; ghcFuncUsingLibFunc :: String -&gt; Ghc a -&gt; Ghc a</span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- &gt; ghcFuncUsingLibFunc str =</span><span>
+</span><span id="line-136"></span><span class="hs-comment">-- &gt;   reifyGhc $ \s -&gt;</span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- &gt;     libFunc $ \i -&gt; do</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- &gt;       reflectGhc (ghcFunc i) s</span><span>
+</span><span id="line-139"></span><span class="hs-comment">--</span><span>
+</span><span id="line-140"></span><span id="local-6989586621680931658"><span class="annot"><a href="GHC.Driver.Monad.html#reflectGhc"><span class="hs-identifier hs-type">reflectGhc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-type">Ghc</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931658"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621680931658"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-141"></span><span id="reflectGhc"><span class="annot"><span class="annottext">reflectGhc :: forall a. Ghc a -&gt; Session -&gt; IO a
+</span><a href="GHC.Driver.Monad.html#reflectGhc"><span class="hs-identifier hs-var hs-var">reflectGhc</span></a></span></span><span> </span><span id="local-6989586621680931657"><span class="annot"><span class="annottext">Ghc a
+</span><a href="#local-6989586621680931657"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ghc a -&gt; Session -&gt; IO a
+forall a. Ghc a -&gt; Session -&gt; IO a
+</span><a href="GHC.Driver.Monad.html#unGhc"><span class="hs-identifier hs-var hs-var">unGhc</span></a></span><span> </span><span class="annot"><span class="annottext">Ghc a
+</span><a href="#local-6989586621680931657"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- &gt; Dual to 'reflectGhc'.  See its documentation.</span><span>
+</span><span id="line-144"></span><span id="local-6989586621680931656"><span class="annot"><a href="GHC.Driver.Monad.html#reifyGhc"><span class="hs-identifier hs-type">reifyGhc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621680931656"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-type">Ghc</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931656"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-145"></span><span id="reifyGhc"><span class="annot"><span class="annottext">reifyGhc :: forall a. (Session -&gt; IO a) -&gt; Ghc a
+</span><a href="GHC.Driver.Monad.html#reifyGhc"><span class="hs-identifier hs-var hs-var">reifyGhc</span></a></span></span><span> </span><span id="local-6989586621680931655"><span class="annot"><span class="annottext">Session -&gt; IO a
+</span><a href="#local-6989586621680931655"><span class="hs-identifier hs-var">act</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; IO a) -&gt; Ghc a
+forall a. (Session -&gt; IO a) -&gt; Ghc a
+</span><a href="GHC.Driver.Monad.html#Ghc"><span class="hs-identifier hs-var">Ghc</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; IO a) -&gt; Ghc a) -&gt; (Session -&gt; IO a) -&gt; Ghc a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Session -&gt; IO a
+</span><a href="#local-6989586621680931655"><span class="hs-identifier hs-var">act</span></a></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- | A monad transformer to add GHC specific features to another monad.</span><span>
+</span><span id="line-149"></span><span class="hs-comment">--</span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- Note that the wrapped monad must support IO and handling of exceptions.</span><span>
+</span><span id="line-151"></span><span class="hs-keyword">newtype</span><span> </span><span id="GhcT"><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span></span><span> </span><span id="local-6989586621680931953"><span class="annot"><a href="#local-6989586621680931953"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680931952"><span class="annot"><a href="#local-6989586621680931952"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="GhcT"><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unGhcT"><span class="annot"><span class="annottext">forall (m :: * -&gt; *) a. GhcT m a -&gt; Session -&gt; m a
+</span><a href="GHC.Driver.Monad.html#unGhcT"><span class="hs-identifier hs-var hs-var">unGhcT</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680931953"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931952"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-152"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680931647"><span id="local-6989586621680931650"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; GhcT m a -&gt; GhcT m b)
+-&gt; (forall a b. a -&gt; GhcT m b -&gt; GhcT m a) -&gt; Functor (GhcT m)
+forall a b. a -&gt; GhcT m b -&gt; GhcT m a
+forall a b. (a -&gt; b) -&gt; GhcT m a -&gt; GhcT m b
+forall (m :: * -&gt; *) a b. Functor m =&gt; a -&gt; GhcT m b -&gt; GhcT m a
+forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+(a -&gt; b) -&gt; GhcT m a -&gt; GhcT m b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: forall a b. a -&gt; GhcT m b -&gt; GhcT m a
+$c&lt;$ :: forall (m :: * -&gt; *) a b. Functor m =&gt; a -&gt; GhcT m b -&gt; GhcT m a
+fmap :: forall a b. (a -&gt; b) -&gt; GhcT m a -&gt; GhcT m b
+$cfmap :: forall (m :: * -&gt; *) a b.
+Functor m =&gt;
+(a -&gt; b) -&gt; GhcT m a -&gt; GhcT m b
+</span><a href="../../base/src/GHC.Base.html#Functor"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-153"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680931637"><span class="annot"><span class="annottext">Monad (GhcT m)
+Monad (GhcT m)
+-&gt; (forall e a. Exception e =&gt; e -&gt; GhcT m a)
+-&gt; MonadThrow (GhcT m)
+forall e a. Exception e =&gt; e -&gt; GhcT m a
+forall (m :: * -&gt; *).
+Monad m -&gt; (forall e a. Exception e =&gt; e -&gt; m a) -&gt; MonadThrow m
+forall {m :: * -&gt; *}. MonadThrow m =&gt; Monad (GhcT m)
+forall (m :: * -&gt; *) e a.
+(MonadThrow m, Exception e) =&gt;
+e -&gt; GhcT m a
+throwM :: forall e a. Exception e =&gt; e -&gt; GhcT m a
+$cthrowM :: forall (m :: * -&gt; *) e a.
+(MonadThrow m, Exception e) =&gt;
+e -&gt; GhcT m a
+</span><a href="#local-6989586621680931637"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadThrow</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680931624"><span class="annot"><span class="annottext">MonadThrow (GhcT m)
+MonadThrow (GhcT m)
+-&gt; (forall e a.
+    Exception e =&gt;
+    GhcT m a -&gt; (e -&gt; GhcT m a) -&gt; GhcT m a)
+-&gt; MonadCatch (GhcT m)
+forall e a. Exception e =&gt; GhcT m a -&gt; (e -&gt; GhcT m a) -&gt; GhcT m a
+forall (m :: * -&gt; *).
+MonadThrow m
+-&gt; (forall e a. Exception e =&gt; m a -&gt; (e -&gt; m a) -&gt; m a)
+-&gt; MonadCatch m
+forall {m :: * -&gt; *}. MonadCatch m =&gt; MonadThrow (GhcT m)
+forall (m :: * -&gt; *) e a.
+(MonadCatch m, Exception e) =&gt;
+GhcT m a -&gt; (e -&gt; GhcT m a) -&gt; GhcT m a
+catch :: forall e a. Exception e =&gt; GhcT m a -&gt; (e -&gt; GhcT m a) -&gt; GhcT m a
+$ccatch :: forall (m :: * -&gt; *) e a.
+(MonadCatch m, Exception e) =&gt;
+GhcT m a -&gt; (e -&gt; GhcT m a) -&gt; GhcT m a
+</span><a href="#local-6989586621680931624"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadCatch</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680931605"><span id="local-6989586621680931609"><span id="local-6989586621680931613"><span class="annot"><span class="annottext">MonadCatch (GhcT m)
+MonadCatch (GhcT m)
+-&gt; (forall b.
+    ((forall a. GhcT m a -&gt; GhcT m a) -&gt; GhcT m b) -&gt; GhcT m b)
+-&gt; (forall b.
+    ((forall a. GhcT m a -&gt; GhcT m a) -&gt; GhcT m b) -&gt; GhcT m b)
+-&gt; (forall a b c.
+    GhcT m a
+    -&gt; (a -&gt; ExitCase b -&gt; GhcT m c)
+    -&gt; (a -&gt; GhcT m b)
+    -&gt; GhcT m (b, c))
+-&gt; MonadMask (GhcT m)
+forall b.
+((forall a. GhcT m a -&gt; GhcT m a) -&gt; GhcT m b) -&gt; GhcT m b
+forall a b c.
+GhcT m a
+-&gt; (a -&gt; ExitCase b -&gt; GhcT m c)
+-&gt; (a -&gt; GhcT m b)
+-&gt; GhcT m (b, c)
+forall {m :: * -&gt; *}. MonadMask m =&gt; MonadCatch (GhcT m)
+forall (m :: * -&gt; *) b.
+MonadMask m =&gt;
+((forall a. GhcT m a -&gt; GhcT m a) -&gt; GhcT m b) -&gt; GhcT m b
+forall (m :: * -&gt; *) a b c.
+MonadMask m =&gt;
+GhcT m a
+-&gt; (a -&gt; ExitCase b -&gt; GhcT m c)
+-&gt; (a -&gt; GhcT m b)
+-&gt; GhcT m (b, c)
+forall (m :: * -&gt; *).
+MonadCatch m
+-&gt; (forall b. ((forall a. m a -&gt; m a) -&gt; m b) -&gt; m b)
+-&gt; (forall b. ((forall a. m a -&gt; m a) -&gt; m b) -&gt; m b)
+-&gt; (forall a b c.
+    m a -&gt; (a -&gt; ExitCase b -&gt; m c) -&gt; (a -&gt; m b) -&gt; m (b, c))
+-&gt; MonadMask m
+generalBracket :: forall a b c.
+GhcT m a
+-&gt; (a -&gt; ExitCase b -&gt; GhcT m c)
+-&gt; (a -&gt; GhcT m b)
+-&gt; GhcT m (b, c)
+$cgeneralBracket :: forall (m :: * -&gt; *) a b c.
+MonadMask m =&gt;
+GhcT m a
+-&gt; (a -&gt; ExitCase b -&gt; GhcT m c)
+-&gt; (a -&gt; GhcT m b)
+-&gt; GhcT m (b, c)
+uninterruptibleMask :: forall b.
+((forall a. GhcT m a -&gt; GhcT m a) -&gt; GhcT m b) -&gt; GhcT m b
+$cuninterruptibleMask :: forall (m :: * -&gt; *) b.
+MonadMask m =&gt;
+((forall a. GhcT m a -&gt; GhcT m a) -&gt; GhcT m b) -&gt; GhcT m b
+mask :: forall b.
+((forall a. GhcT m a -&gt; GhcT m a) -&gt; GhcT m b) -&gt; GhcT m b
+$cmask :: forall (m :: * -&gt; *) b.
+MonadMask m =&gt;
+((forall a. GhcT m a -&gt; GhcT m a) -&gt; GhcT m b) -&gt; GhcT m b
+</span><a href="#local-6989586621680931605"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">MonadMask</span></a></span></span></span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">via</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../transformers/src/Control.Monad.Trans.Reader.html#ReaderT"><span class="hs-identifier hs-type">ReaderT</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931953"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span id="local-6989586621680931932"><span id="local-6989586621680931933"><span class="annot"><a href="GHC.Driver.Monad.html#liftGhcT"><span class="hs-identifier hs-type">liftGhcT</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680931933"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931932"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-type">GhcT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931933"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931932"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-156"></span><span id="liftGhcT"><span class="annot"><span class="annottext">liftGhcT :: forall (m :: * -&gt; *) a. m a -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#liftGhcT"><span class="hs-identifier hs-var hs-var">liftGhcT</span></a></span></span><span> </span><span id="local-6989586621680931600"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621680931600"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; m a) -&gt; GhcT m a
+forall (m :: * -&gt; *) a. (Session -&gt; m a) -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; m a) -&gt; GhcT m a) -&gt; (Session -&gt; m a) -&gt; GhcT m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Session
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621680931600"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span><span id="local-6989586621680931929"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680931590"><span id="local-6989586621680931592"><span id="local-6989586621680931594"><span class="annot"><a href="../../base/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-type">Applicative</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931929"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-type">Applicative</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-type">GhcT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931929"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-159"></span><span>  </span><span id="local-6989586621680931588"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; GhcT m a
+</span><a href="../../base/src/GHC.Base.html#pure"><span class="hs-identifier hs-var hs-var hs-var hs-var">pure</span></a></span></span><span> </span><span id="local-6989586621680931587"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931587"><span class="hs-identifier hs-var">x</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; m a) -&gt; GhcT m a
+forall (m :: * -&gt; *) a. (Session -&gt; m a) -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; m a) -&gt; GhcT m a) -&gt; (Session -&gt; m a) -&gt; GhcT m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Session
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="../../base/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931587"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-160"></span><span>  </span><span id="local-6989586621680931585"><span class="annot"><span class="annottext">GhcT m (a -&gt; b)
+</span><a href="#local-6989586621680931585"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621680931584"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. GhcT m (a -&gt; b) -&gt; GhcT m a -&gt; GhcT m b
+</span><a href="../../base/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;*&gt;</span></a></span></span><span> </span><span id="local-6989586621680931583"><span class="annot"><span class="annottext">GhcT m a
+</span><a href="#local-6989586621680931583"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; m b) -&gt; GhcT m b
+forall (m :: * -&gt; *) a. (Session -&gt; m a) -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; m b) -&gt; GhcT m b) -&gt; (Session -&gt; m b) -&gt; GhcT m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680931582"><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931582"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">GhcT m (a -&gt; b) -&gt; Session -&gt; m (a -&gt; b)
+forall (m :: * -&gt; *) a. GhcT m a -&gt; Session -&gt; m a
+</span><a href="GHC.Driver.Monad.html#unGhcT"><span class="hs-identifier hs-var hs-var">unGhcT</span></a></span><span> </span><span class="annot"><span class="annottext">GhcT m (a -&gt; b)
+</span><a href="#local-6989586621680931585"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931582"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">m (a -&gt; b) -&gt; m a -&gt; m b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="../../base/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">GhcT m a -&gt; Session -&gt; m a
+forall (m :: * -&gt; *) a. GhcT m a -&gt; Session -&gt; m a
+</span><a href="GHC.Driver.Monad.html#unGhcT"><span class="hs-identifier hs-var hs-var">unGhcT</span></a></span><span> </span><span class="annot"><span class="annottext">GhcT m a
+</span><a href="#local-6989586621680931583"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931582"><span class="hs-identifier hs-var">s</span></a></span></span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span id="local-6989586621680931944"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680931575"><span id="local-6989586621680931577"><span class="annot"><a href="../../base/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931944"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-type">GhcT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931944"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-163"></span><span>  </span><span id="local-6989586621680931573"><span class="annot"><span class="annottext">GhcT m a
+</span><a href="#local-6989586621680931573"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span id="local-6989586621680931572"><span class="annot"><span class="annottext">&gt;&gt;= :: forall a b. GhcT m a -&gt; (a -&gt; GhcT m b) -&gt; GhcT m b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var hs-var hs-var hs-var">&gt;&gt;=</span></a></span></span><span> </span><span id="local-6989586621680931571"><span class="annot"><span class="annottext">a -&gt; GhcT m b
+</span><a href="#local-6989586621680931571"><span class="hs-identifier hs-var">k</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; m b) -&gt; GhcT m b
+forall (m :: * -&gt; *) a. (Session -&gt; m a) -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; m b) -&gt; GhcT m b) -&gt; (Session -&gt; m b) -&gt; GhcT m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680931570"><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931570"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621680931569"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931569"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">GhcT m a -&gt; Session -&gt; m a
+forall (m :: * -&gt; *) a. GhcT m a -&gt; Session -&gt; m a
+</span><a href="GHC.Driver.Monad.html#unGhcT"><span class="hs-identifier hs-var hs-var">unGhcT</span></a></span><span> </span><span class="annot"><span class="annottext">GhcT m a
+</span><a href="#local-6989586621680931573"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931570"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">;</span><span> </span><span class="annot"><span class="annottext">GhcT m b -&gt; Session -&gt; m b
+forall (m :: * -&gt; *) a. GhcT m a -&gt; Session -&gt; m a
+</span><a href="GHC.Driver.Monad.html#unGhcT"><span class="hs-identifier hs-var hs-var">unGhcT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; GhcT m b
+</span><a href="#local-6989586621680931571"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621680931569"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Session
+</span><a href="#local-6989586621680931570"><span class="hs-identifier hs-var">s</span></a></span></span><span>
+</span><span id="line-164"></span><span>
+</span><span id="line-165"></span><span id="local-6989586621680931922"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931922"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-type">GhcT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931922"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-166"></span><span>  </span><span id="local-6989586621680931560"><span class="annot"><span class="annottext">liftIO :: forall a. IO a -&gt; GhcT m a
+</span><a href="#local-6989586621680931560"><span class="hs-identifier hs-var hs-var hs-var hs-var">liftIO</span></a></span></span><span> </span><span id="local-6989586621680931559"><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621680931559"><span class="hs-identifier hs-var">ioA</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; m a) -&gt; GhcT m a
+forall (m :: * -&gt; *) a. (Session -&gt; m a) -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; m a) -&gt; GhcT m a) -&gt; (Session -&gt; m a) -&gt; GhcT m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Session
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO a -&gt; m a
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621680931559"><span class="hs-identifier hs-var">ioA</span></a></span></span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span id="local-6989586621680931919"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-type">MonadIO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931919"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html#HasDynFlags"><span class="hs-identifier hs-type">HasDynFlags</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-type">GhcT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931919"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-169"></span><span>  </span><span id="local-6989586621680931552"><span class="annot"><span class="annottext">getDynFlags :: GhcT m DynFlags
+</span><a href="#local-6989586621680931552"><span class="hs-identifier hs-var hs-var hs-var hs-var">getDynFlags</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; m DynFlags) -&gt; GhcT m DynFlags
+forall (m :: * -&gt; *) a. (Session -&gt; m a) -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; m DynFlags) -&gt; GhcT m DynFlags)
+-&gt; (Session -&gt; m DynFlags) -&gt; GhcT m DynFlags
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span id="local-6989586621680931551"><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931551"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(HscEnv -&gt; DynFlags) -&gt; m HscEnv -&gt; m DynFlags
+forall (m :: * -&gt; *) a1 r. Monad m =&gt; (a1 -&gt; r) -&gt; m a1 -&gt; m r
+</span><a href="../../base/src/GHC.Base.html#liftM"><span class="hs-identifier hs-var">liftM</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv -&gt; DynFlags
+</span><a href="GHC.Driver.Types.html#hsc_dflags"><span class="hs-identifier hs-var hs-var">hsc_dflags</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO HscEnv -&gt; m HscEnv
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO HscEnv -&gt; m HscEnv) -&gt; IO HscEnv -&gt; m HscEnv
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">IORef HscEnv -&gt; IO HscEnv
+forall a. IORef a -&gt; IO a
+</span><a href="../../base/src/GHC.IORef.html#readIORef"><span class="hs-identifier hs-var">readIORef</span></a></span><span> </span><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931551"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span id="local-6989586621680931914"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="GHC.Utils.Exception.html#ExceptionMonad"><span class="hs-identifier hs-type">ExceptionMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931914"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-type">GhcT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931914"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-172"></span><span>  </span><span id="local-6989586621680931525"><span class="annot"><span class="annottext">getSession :: GhcT m HscEnv
+</span><a href="#local-6989586621680931525"><span class="hs-identifier hs-var hs-var hs-var hs-var">getSession</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; m HscEnv) -&gt; GhcT m HscEnv
+forall (m :: * -&gt; *) a. (Session -&gt; m a) -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; m HscEnv) -&gt; GhcT m HscEnv)
+-&gt; (Session -&gt; m HscEnv) -&gt; GhcT m HscEnv
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span id="local-6989586621680931524"><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931524"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO HscEnv -&gt; m HscEnv
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO HscEnv -&gt; m HscEnv) -&gt; IO HscEnv -&gt; m HscEnv
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">IORef HscEnv -&gt; IO HscEnv
+forall a. IORef a -&gt; IO a
+</span><a href="../../base/src/GHC.IORef.html#readIORef"><span class="hs-identifier hs-var">readIORef</span></a></span><span> </span><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931524"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-173"></span><span>  </span><span id="local-6989586621680931522"><span class="annot"><span class="annottext">setSession :: HscEnv -&gt; GhcT m ()
+</span><a href="#local-6989586621680931522"><span class="hs-identifier hs-var hs-var hs-var hs-var">setSession</span></a></span></span><span> </span><span id="local-6989586621680931521"><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621680931521"><span class="hs-identifier hs-var">s'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Session -&gt; m ()) -&gt; GhcT m ()
+forall (m :: * -&gt; *) a. (Session -&gt; m a) -&gt; GhcT m a
+</span><a href="GHC.Driver.Monad.html#GhcT"><span class="hs-identifier hs-var">GhcT</span></a></span><span> </span><span class="annot"><span class="annottext">((Session -&gt; m ()) -&gt; GhcT m ()) -&gt; (Session -&gt; m ()) -&gt; GhcT m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Monad.html#Session"><span class="hs-identifier hs-type">Session</span></a></span><span> </span><span id="local-6989586621680931520"><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931520"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; IO () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">IORef HscEnv -&gt; HscEnv -&gt; IO ()
+forall a. IORef a -&gt; a -&gt; IO ()
+</span><a href="../../base/src/GHC.IORef.html#writeIORef"><span class="hs-identifier hs-var">writeIORef</span></a></span><span> </span><span class="annot"><span class="annottext">IORef HscEnv
+</span><a href="#local-6989586621680931520"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">HscEnv
+</span><a href="#local-6989586621680931521"><span class="hs-identifier hs-var">s'</span></a></span></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span class="hs-comment">-- | Print the error message and all warnings.  Useful inside exception</span><span>
+</span><span id="line-177"></span><span class="hs-comment">--   handlers.  Clears warnings after printing.</span><span>
+</span><span id="line-178"></span><span id="local-6989586621680931913"><span class="annot"><a href="GHC.Driver.Monad.html#printException"><span class="hs-identifier hs-type">printException</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931913"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Types.html#SourceError"><span class="hs-identifier hs-type">SourceError</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680931913"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-179"></span><span id="printException"><span class="annot"><span class="annottext">printException :: forall (m :: * -&gt; *). GhcMonad m =&gt; SourceError -&gt; m ()
+</span><a href="GHC.Driver.Monad.html#printException"><span class="hs-identifier hs-var hs-var">printException</span></a></span></span><span> </span><span id="local-6989586621680931510"><span class="annot"><span class="annottext">SourceError
+</span><a href="#local-6989586621680931510"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-180"></span><span>  </span><span id="local-6989586621680931509"><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621680931509"><span class="hs-identifier hs-var">dflags</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m DynFlags
+forall (m :: * -&gt; *). GhcMonad m =&gt; m DynFlags
+</span><a href="GHC.Driver.Monad.html#getSessionDynFlags"><span class="hs-identifier hs-var">getSessionDynFlags</span></a></span><span>
+</span><span id="line-181"></span><span>  </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><a href="../../base/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; IO () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; WarningMessages -&gt; IO ()
+</span><a href="GHC.Utils.Error.html#printBagOfErrors"><span class="hs-identifier hs-var">printBagOfErrors</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621680931509"><span class="hs-identifier hs-var">dflags</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SourceError -&gt; WarningMessages
+</span><a href="GHC.Driver.Types.html#srcErrorMessages"><span class="hs-identifier hs-var">srcErrorMessages</span></a></span><span> </span><span class="annot"><span class="annottext">SourceError
+</span><a href="#local-6989586621680931510"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span class="hs-comment">-- | A function called to log warnings and errors.</span><span>
+</span><span id="line-184"></span><span class="hs-keyword">type</span><span> </span><span id="WarnErrLogger"><span class="annot"><a href="GHC.Driver.Monad.html#WarnErrLogger"><span class="hs-identifier hs-var">WarnErrLogger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680931506"><span class="annot"><a href="#local-6989586621680931506"><span class="hs-identifier hs-type">m</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#GhcMonad"><span class="hs-identifier hs-type">GhcMonad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680931506"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Types.html#SourceError"><span class="hs-identifier hs-type">SourceError</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680931506"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="annot"><a href="GHC.Driver.Monad.html#defaultWarnErrLogger"><span class="hs-identifier hs-type">defaultWarnErrLogger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Monad.html#WarnErrLogger"><span class="hs-identifier hs-type">WarnErrLogger</span></a></span><span>
+</span><span id="line-187"></span><span id="defaultWarnErrLogger"><span class="annot"><span class="annottext">defaultWarnErrLogger :: WarnErrLogger
+</span><a href="GHC.Driver.Monad.html#defaultWarnErrLogger"><span class="hs-identifier hs-var hs-var">defaultWarnErrLogger</span></a></span></span><span> </span><span class="annot"><span class="annottext">Maybe SourceError
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; m ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-188"></span><span class="annot"><a href="GHC.Driver.Monad.html#defaultWarnErrLogger"><span class="hs-identifier hs-var">defaultWarnErrLogger</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680931498"><span class="annot"><span class="annottext">SourceError
+</span><a href="#local-6989586621680931498"><span class="hs-identifier hs-var">e</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SourceError -&gt; m ()
+forall (m :: * -&gt; *). GhcMonad m =&gt; SourceError -&gt; m ()
+</span><a href="GHC.Driver.Monad.html#printException"><span class="hs-identifier hs-var">printException</span></a></span><span> </span><span class="annot"><span class="annottext">SourceError
+</span><a href="#local-6989586621680931498"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span></pre></body></html>

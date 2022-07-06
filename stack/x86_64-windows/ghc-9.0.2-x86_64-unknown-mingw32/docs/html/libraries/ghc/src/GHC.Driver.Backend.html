@@ -1,0 +1,155 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621680773771"></span><span class="hs-pragma">{-# LANGUAGE MultiWayIf #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- | Code generation backends</span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.Driver.Backend</span><span>
+</span><span id="line-5"></span><span>   </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.Driver.Backend.html#Backend"><span class="hs-identifier">Backend</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Backend.html#platformDefaultBackend"><span class="hs-identifier">platformDefaultBackend</span></a></span><span>
+</span><span id="line-7"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Backend.html#platformNcgSupported"><span class="hs-identifier">platformNcgSupported</span></a></span><span>
+</span><span id="line-8"></span><span>   </span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Prelude.html"><span class="hs-identifier">GHC.Prelude</span></a></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#"><span class="hs-identifier">GHC.Platform</span></a></span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- | Backend</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">data</span><span> </span><span id="Backend"><span class="annot"><a href="GHC.Driver.Backend.html#Backend"><span class="hs-identifier hs-var">Backend</span></a></span></span><span>
+</span><span id="line-16"></span><span>   </span><span class="hs-glyph">=</span><span> </span><span id="NCG"><span class="annot"><a href="GHC.Driver.Backend.html#NCG"><span class="hs-identifier hs-var">NCG</span></a></span></span><span>           </span><span class="hs-comment">-- ^ Native code generator backend</span><span>
+</span><span id="line-17"></span><span>   </span><span class="hs-glyph">|</span><span> </span><span id="LLVM"><span class="annot"><a href="GHC.Driver.Backend.html#LLVM"><span class="hs-identifier hs-var">LLVM</span></a></span></span><span>          </span><span class="hs-comment">-- ^ LLVM backend</span><span>
+</span><span id="line-18"></span><span>   </span><span class="hs-glyph">|</span><span> </span><span id="ViaC"><span class="annot"><a href="GHC.Driver.Backend.html#ViaC"><span class="hs-identifier hs-var">ViaC</span></a></span></span><span>          </span><span class="hs-comment">-- ^ Via-C backend</span><span>
+</span><span id="line-19"></span><span>   </span><span class="hs-glyph">|</span><span> </span><span id="Interpreter"><span class="annot"><a href="GHC.Driver.Backend.html#Interpreter"><span class="hs-identifier hs-var">Interpreter</span></a></span></span><span>   </span><span class="hs-comment">-- ^ Interpreter</span><span>
+</span><span id="line-20"></span><span>   </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680773761"><span id="local-6989586621680773763"><span class="annot"><span class="annottext">Backend -&gt; Backend -&gt; Bool
+(Backend -&gt; Backend -&gt; Bool)
+-&gt; (Backend -&gt; Backend -&gt; Bool) -&gt; Eq Backend
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Backend -&gt; Backend -&gt; Bool
+$c/= :: Backend -&gt; Backend -&gt; Bool
+== :: Backend -&gt; Backend -&gt; Bool
+$c== :: Backend -&gt; Backend -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span id="local-6989586621680773741"><span id="local-6989586621680773743"><span id="local-6989586621680773746"><span id="local-6989586621680773749"><span id="local-6989586621680773752"><span id="local-6989586621680773754"><span id="local-6989586621680773756"><span class="annot"><span class="annottext">Eq Backend
+Eq Backend
+-&gt; (Backend -&gt; Backend -&gt; Ordering)
+-&gt; (Backend -&gt; Backend -&gt; Bool)
+-&gt; (Backend -&gt; Backend -&gt; Bool)
+-&gt; (Backend -&gt; Backend -&gt; Bool)
+-&gt; (Backend -&gt; Backend -&gt; Bool)
+-&gt; (Backend -&gt; Backend -&gt; Backend)
+-&gt; (Backend -&gt; Backend -&gt; Backend)
+-&gt; Ord Backend
+Backend -&gt; Backend -&gt; Bool
+Backend -&gt; Backend -&gt; Ordering
+Backend -&gt; Backend -&gt; Backend
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Backend -&gt; Backend -&gt; Backend
+$cmin :: Backend -&gt; Backend -&gt; Backend
+max :: Backend -&gt; Backend -&gt; Backend
+$cmax :: Backend -&gt; Backend -&gt; Backend
+&gt;= :: Backend -&gt; Backend -&gt; Bool
+$c&gt;= :: Backend -&gt; Backend -&gt; Bool
+&gt; :: Backend -&gt; Backend -&gt; Bool
+$c&gt; :: Backend -&gt; Backend -&gt; Bool
+&lt;= :: Backend -&gt; Backend -&gt; Bool
+$c&lt;= :: Backend -&gt; Backend -&gt; Bool
+&lt; :: Backend -&gt; Backend -&gt; Bool
+$c&lt; :: Backend -&gt; Backend -&gt; Bool
+compare :: Backend -&gt; Backend -&gt; Ordering
+$ccompare :: Backend -&gt; Backend -&gt; Ordering
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span id="local-6989586621680773734"><span id="local-6989586621680773736"><span id="local-6989586621680773738"><span class="annot"><span class="annottext">Int -&gt; Backend -&gt; ShowS
+[Backend] -&gt; ShowS
+Backend -&gt; String
+(Int -&gt; Backend -&gt; ShowS)
+-&gt; (Backend -&gt; String) -&gt; ([Backend] -&gt; ShowS) -&gt; Show Backend
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Backend] -&gt; ShowS
+$cshowList :: [Backend] -&gt; ShowS
+show :: Backend -&gt; String
+$cshow :: Backend -&gt; String
+showsPrec :: Int -&gt; Backend -&gt; ShowS
+$cshowsPrec :: Int -&gt; Backend -&gt; ShowS
+</span><a href="../../base/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span id="local-6989586621680773719"><span id="local-6989586621680773726"><span id="local-6989586621680773729"><span id="local-6989586621680773731"><span class="annot"><span class="annottext">ReadPrec [Backend]
+ReadPrec Backend
+Int -&gt; ReadS Backend
+ReadS [Backend]
+(Int -&gt; ReadS Backend)
+-&gt; ReadS [Backend]
+-&gt; ReadPrec Backend
+-&gt; ReadPrec [Backend]
+-&gt; Read Backend
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+readListPrec :: ReadPrec [Backend]
+$creadListPrec :: ReadPrec [Backend]
+readPrec :: ReadPrec Backend
+$creadPrec :: ReadPrec Backend
+readList :: ReadS [Backend]
+$creadList :: ReadS [Backend]
+readsPrec :: Int -&gt; ReadS Backend
+$creadsPrec :: Int -&gt; ReadS Backend
+</span><a href="../../base/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- | Default backend to use for the given platform.</span><span>
+</span><span id="line-23"></span><span class="annot"><a href="GHC.Driver.Backend.html#platformDefaultBackend"><span class="hs-identifier hs-type">platformDefaultBackend</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#Platform"><span class="hs-identifier hs-type">Platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Backend.html#Backend"><span class="hs-identifier hs-type">Backend</span></a></span><span>
+</span><span id="line-24"></span><span id="platformDefaultBackend"><span class="annot"><span class="annottext">platformDefaultBackend :: Platform -&gt; Backend
+</span><a href="GHC.Driver.Backend.html#platformDefaultBackend"><span class="hs-identifier hs-var hs-var">platformDefaultBackend</span></a></span></span><span> </span><span id="local-6989586621680773716"><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680773716"><span class="hs-identifier hs-var">platform</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span>
+</span><span id="line-25"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Bool
+</span><a href="../../ghc-boot/src/GHC.Platform.html#platformUnregisterised"><span class="hs-identifier hs-var hs-var">platformUnregisterised</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680773716"><span class="hs-identifier hs-var">platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Backend
+</span><a href="GHC.Driver.Backend.html#ViaC"><span class="hs-identifier hs-var">ViaC</span></a></span><span>
+</span><span id="line-26"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Bool
+</span><a href="GHC.Driver.Backend.html#platformNcgSupported"><span class="hs-identifier hs-var">platformNcgSupported</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680773716"><span class="hs-identifier hs-var">platform</span></a></span><span>   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Backend
+</span><a href="GHC.Driver.Backend.html#NCG"><span class="hs-identifier hs-var">NCG</span></a></span><span>
+</span><span id="line-27"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="../../base/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span>                       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Backend
+</span><a href="GHC.Driver.Backend.html#LLVM"><span class="hs-identifier hs-var">LLVM</span></a></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- | Is the platform supported by the Native Code Generator?</span><span>
+</span><span id="line-31"></span><span class="annot"><a href="GHC.Driver.Backend.html#platformNcgSupported"><span class="hs-identifier hs-type">platformNcgSupported</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#Platform"><span class="hs-identifier hs-type">Platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-32"></span><span id="platformNcgSupported"><span class="annot"><span class="annottext">platformNcgSupported :: Platform -&gt; Bool
+</span><a href="GHC.Driver.Backend.html#platformNcgSupported"><span class="hs-identifier hs-var hs-var">platformNcgSupported</span></a></span></span><span> </span><span id="local-6989586621680773714"><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680773714"><span class="hs-identifier hs-var">platform</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span>
+</span><span id="line-33"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Bool
+</span><a href="../../ghc-boot/src/GHC.Platform.html#platformUnregisterised"><span class="hs-identifier hs-var hs-var">platformUnregisterised</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680773714"><span class="hs-identifier hs-var">platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="hs-comment">-- NCG doesn't support unregisterised ABI</span><span>
+</span><span id="line-34"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621680773713"><span class="hs-identifier hs-var">ncgValidArch</span></a></span><span>                    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-35"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="../../base/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span>                       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-36"></span><span>   </span><span class="hs-keyword">where</span><span>
+</span><span id="line-37"></span><span>      </span><span id="local-6989586621680773713"><span class="annot"><span class="annottext">ncgValidArch :: Bool
+</span><a href="#local-6989586621680773713"><span class="hs-identifier hs-var hs-var">ncgValidArch</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#platformArch"><span class="hs-identifier hs-var">platformArch</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680773714"><span class="hs-identifier hs-var">platform</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-38"></span><span>         </span><span class="annot"><span class="annottext">Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#ArchX86"><span class="hs-identifier hs-var">ArchX86</span></a></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-39"></span><span>         </span><span class="annot"><span class="annottext">Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#ArchX86_64"><span class="hs-identifier hs-var">ArchX86_64</span></a></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-40"></span><span>         </span><span class="annot"><span class="annottext">Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#ArchPPC"><span class="hs-identifier hs-var">ArchPPC</span></a></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-41"></span><span>         </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#ArchPPC_64"><span class="hs-identifier hs-type">ArchPPC_64</span></a></span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-42"></span><span>         </span><span class="annot"><span class="annottext">Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#ArchSPARC"><span class="hs-identifier hs-var">ArchSPARC</span></a></span><span>     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-43"></span><span>         </span><span class="annot"><span class="annottext">Arch
+</span><span class="hs-identifier">_</span></span><span>             </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-44"></span></pre></body></html>

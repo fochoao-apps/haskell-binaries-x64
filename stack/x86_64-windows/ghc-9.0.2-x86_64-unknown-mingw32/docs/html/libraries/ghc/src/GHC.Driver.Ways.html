@@ -1,0 +1,465 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621680828289"></span><span class="hs-comment">-- | Ways</span><span>
+</span><span id="line-2"></span><span class="hs-comment">--</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- The central concept of a &quot;way&quot; is that all objects in a given</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- program must be compiled in the same &quot;way&quot;. Certain options change</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- parameters of the virtual machine, eg. profiling adds an extra word</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- to the object header, so profiling objects cannot be linked with</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- non-profiling objects.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- After parsing the command-line options, we determine which &quot;way&quot; we</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- are building - this might be a combination way, eg. profiling+threaded.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- There are two kinds of ways:</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--    - RTS only: only affect the runtime system (RTS) and don't affect code</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--    generation (e.g. threaded, debug)</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--    - Full ways: affect code generation and the RTS (e.g. profiling, dynamic</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--    linking)</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- We then find the &quot;build-tag&quot; associated with this way, and this</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- becomes the suffix used to find .hi files and libraries used in</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- this compilation.</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.Driver.Ways</span><span>
+</span><span id="line-22"></span><span>   </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier">Way</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#hasWay"><span class="hs-identifier">hasWay</span></a></span><span>
+</span><span id="line-24"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#allowed_combination"><span class="hs-identifier">allowed_combination</span></a></span><span>
+</span><span id="line-25"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#wayGeneralFlags"><span class="hs-identifier">wayGeneralFlags</span></a></span><span>
+</span><span id="line-26"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#wayUnsetGeneralFlags"><span class="hs-identifier">wayUnsetGeneralFlags</span></a></span><span>
+</span><span id="line-27"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptc"><span class="hs-identifier">wayOptc</span></a></span><span>
+</span><span id="line-28"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptl"><span class="hs-identifier">wayOptl</span></a></span><span>
+</span><span id="line-29"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptP"><span class="hs-identifier">wayOptP</span></a></span><span>
+</span><span id="line-30"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#wayDesc"><span class="hs-identifier">wayDesc</span></a></span><span>
+</span><span id="line-31"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier">wayRTSOnly</span></a></span><span>
+</span><span id="line-32"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier">wayTag</span></a></span><span>
+</span><span id="line-33"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#waysTag"><span class="hs-identifier">waysTag</span></a></span><span>
+</span><span id="line-34"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#waysBuildTag"><span class="hs-identifier">waysBuildTag</span></a></span><span>
+</span><span id="line-35"></span><span>   </span><span class="annot"><span class="hs-comment">-- * Host GHC ways</span></span><span>
+</span><span id="line-36"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#hostFullWays"><span class="hs-identifier">hostFullWays</span></a></span><span>
+</span><span id="line-37"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#hostIsProfiled"><span class="hs-identifier">hostIsProfiled</span></a></span><span>
+</span><span id="line-38"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#hostIsDynamic"><span class="hs-identifier">hostIsDynamic</span></a></span><span>
+</span><span id="line-39"></span><span>   </span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Prelude.html"><span class="hs-identifier">GHC.Prelude</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#"><span class="hs-identifier">GHC.Platform</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Driver.Flags.html"><span class="hs-identifier">GHC.Driver.Flags</span></a></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="../../containers/src/Data.Set.html#"><span class="hs-identifier">Data.Set</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Set</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../containers/src/Data.Set.html#"><span class="hs-identifier">Data.Set</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../containers/src/Data.Set.Internal.html#Set"><span class="hs-identifier">Set</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Data.List.html#"><span class="hs-identifier">Data.List</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/Data.OldList.html#intersperse"><span class="hs-identifier">intersperse</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/System.IO.Unsafe.html#"><span class="hs-identifier">System.IO.Unsafe</span></a></span><span> </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="../../base/src/GHC.IO.Unsafe.html#unsafeDupablePerformIO"><span class="hs-identifier">unsafeDupablePerformIO</span></a></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | A way</span><span>
+</span><span id="line-52"></span><span class="hs-comment">--</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- Don't change the constructor order as it us used by `waysTag` to create a</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- unique tag (e.g. thr_debug_p) which is expected by other tools (e.g. Cabal).</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">data</span><span> </span><span id="Way"><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-var">Way</span></a></span></span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="WayCustom"><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-var">WayCustom</span></a></span></span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-comment">-- ^ for GHC API clients building custom variants</span><span>
+</span><span id="line-57"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WayThreaded"><span class="annot"><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span></span><span>      </span><span class="hs-comment">-- ^ (RTS only) Multithreaded runtime system</span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WayDebug"><span class="annot"><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span></span><span>         </span><span class="hs-comment">-- ^ Debugging, enable trace messages and extra checks</span><span>
+</span><span id="line-59"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WayProf"><span class="annot"><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span></span><span>          </span><span class="hs-comment">-- ^ Profiling, enable cost-centre stacks and profiling reports</span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WayEventLog"><span class="annot"><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span></span><span>      </span><span class="hs-comment">-- ^ (RTS only) enable event logging</span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WayDyn"><span class="annot"><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span></span><span>           </span><span class="hs-comment">-- ^ Dynamic linking</span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680828248"><span id="local-6989586621680828253"><span class="annot"><span class="annottext">Way -&gt; Way -&gt; Bool
+(Way -&gt; Way -&gt; Bool) -&gt; (Way -&gt; Way -&gt; Bool) -&gt; Eq Way
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Way -&gt; Way -&gt; Bool
+$c/= :: Way -&gt; Way -&gt; Bool
+== :: Way -&gt; Way -&gt; Bool
+$c== :: Way -&gt; Way -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680828227"><span id="local-6989586621680828229"><span id="local-6989586621680828231"><span id="local-6989586621680828233"><span id="local-6989586621680828235"><span id="local-6989586621680828237"><span id="local-6989586621680828242"><span class="annot"><span class="annottext">Eq Way
+Eq Way
+-&gt; (Way -&gt; Way -&gt; Ordering)
+-&gt; (Way -&gt; Way -&gt; Bool)
+-&gt; (Way -&gt; Way -&gt; Bool)
+-&gt; (Way -&gt; Way -&gt; Bool)
+-&gt; (Way -&gt; Way -&gt; Bool)
+-&gt; (Way -&gt; Way -&gt; Way)
+-&gt; (Way -&gt; Way -&gt; Way)
+-&gt; Ord Way
+Way -&gt; Way -&gt; Bool
+Way -&gt; Way -&gt; Ordering
+Way -&gt; Way -&gt; Way
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Way -&gt; Way -&gt; Way
+$cmin :: Way -&gt; Way -&gt; Way
+max :: Way -&gt; Way -&gt; Way
+$cmax :: Way -&gt; Way -&gt; Way
+&gt;= :: Way -&gt; Way -&gt; Bool
+$c&gt;= :: Way -&gt; Way -&gt; Bool
+&gt; :: Way -&gt; Way -&gt; Bool
+$c&gt; :: Way -&gt; Way -&gt; Bool
+&lt;= :: Way -&gt; Way -&gt; Bool
+$c&lt;= :: Way -&gt; Way -&gt; Bool
+&lt; :: Way -&gt; Way -&gt; Bool
+$c&lt; :: Way -&gt; Way -&gt; Bool
+compare :: Way -&gt; Way -&gt; Ordering
+$ccompare :: Way -&gt; Way -&gt; Ordering
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680828214"><span id="local-6989586621680828216"><span id="local-6989586621680828223"><span class="annot"><span class="annottext">Int -&gt; Way -&gt; ShowS
+[Way] -&gt; ShowS
+Way -&gt; String
+(Int -&gt; Way -&gt; ShowS)
+-&gt; (Way -&gt; String) -&gt; ([Way] -&gt; ShowS) -&gt; Show Way
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Way] -&gt; ShowS
+$cshowList :: [Way] -&gt; ShowS
+show :: Way -&gt; String
+$cshow :: Way -&gt; String
+showsPrec :: Int -&gt; Way -&gt; ShowS
+$cshowsPrec :: Int -&gt; Way -&gt; ShowS
+</span><a href="../../base/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- | Test if a ways is enabled</span><span>
+</span><span id="line-65"></span><span class="annot"><a href="GHC.Driver.Ways.html#hasWay"><span class="hs-identifier hs-type">hasWay</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../containers/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-66"></span><span id="hasWay"><span class="annot"><span class="annottext">hasWay :: Set Way -&gt; Way -&gt; Bool
+</span><a href="GHC.Driver.Ways.html#hasWay"><span class="hs-identifier hs-var hs-var">hasWay</span></a></span></span><span> </span><span id="local-6989586621680828211"><span class="annot"><span class="annottext">Set Way
+</span><a href="#local-6989586621680828211"><span class="hs-identifier hs-var">ws</span></a></span></span><span> </span><span id="local-6989586621680828210"><span class="annot"><span class="annottext">Way
+</span><a href="#local-6989586621680828210"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Way -&gt; Set Way -&gt; Bool
+forall a. Ord a =&gt; a -&gt; Set a -&gt; Bool
+</span><a href="../../containers/src/Data.Set.Internal.html#member"><span class="hs-identifier hs-var">Set.member</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="#local-6989586621680828210"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Set Way
+</span><a href="#local-6989586621680828211"><span class="hs-identifier hs-var">ws</span></a></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- | Check if a combination of ways is allowed</span><span>
+</span><span id="line-69"></span><span class="annot"><a href="GHC.Driver.Ways.html#allowed_combination"><span class="hs-identifier hs-type">allowed_combination</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../containers/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-70"></span><span id="allowed_combination"><span class="annot"><span class="annottext">allowed_combination :: Set Way -&gt; Bool
+</span><a href="GHC.Driver.Ways.html#allowed_combination"><span class="hs-identifier hs-var hs-var">allowed_combination</span></a></span></span><span> </span><span id="local-6989586621680828208"><span class="annot"><span class="annottext">Set Way
+</span><a href="#local-6989586621680828208"><span class="hs-identifier hs-var">ways</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621680828206"><span class="hs-identifier hs-var">disallowed</span></a></span><span>
+</span><span id="line-71"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-72"></span><span>   </span><span id="local-6989586621680828206"><span class="annot"><span class="annottext">disallowed :: Bool
+</span><a href="#local-6989586621680828206"><span class="hs-identifier hs-var hs-var">disallowed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Bool] -&gt; Bool
+forall (t :: * -&gt; *). Foldable t =&gt; t Bool -&gt; Bool
+</span><a href="../../base/src/Data.Foldable.html#or"><span class="hs-identifier hs-var">or</span></a></span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Set Way -&gt; Way -&gt; Bool
+</span><a href="GHC.Driver.Ways.html#hasWay"><span class="hs-identifier hs-var">hasWay</span></a></span><span> </span><span class="annot"><span class="annottext">Set Way
+</span><a href="#local-6989586621680828208"><span class="hs-identifier hs-var">ways</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="#local-6989586621680828203"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Set Way -&gt; Way -&gt; Bool
+</span><a href="GHC.Driver.Ways.html#hasWay"><span class="hs-identifier hs-var">hasWay</span></a></span><span> </span><span class="annot"><span class="annottext">Set Way
+</span><a href="#local-6989586621680828208"><span class="hs-identifier hs-var">ways</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="#local-6989586621680828201"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-73"></span><span>                   </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621680828203"><span class="annot"><span class="annottext">Way
+</span><a href="#local-6989586621680828203"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621680828201"><span class="annot"><span class="annottext">Way
+</span><a href="#local-6989586621680828201"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Way, Way)]
+forall {a}. [a]
+</span><a href="#local-6989586621680828200"><span class="hs-identifier hs-var">couples</span></a></span><span>
+</span><span id="line-74"></span><span>                   </span><span class="hs-special">]</span><span>
+</span><span id="line-75"></span><span>   </span><span class="hs-comment">-- List of disallowed couples of ways</span><span>
+</span><span id="line-76"></span><span>   </span><span id="local-6989586621680828200"><span class="annot"><span class="annottext">couples :: [a]
+</span><a href="#local-6989586621680828200"><span class="hs-identifier hs-var hs-var">couples</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-comment">-- we don't have any disallowed combination of ways nowadays</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | Unique tag associated to a list of ways</span><span>
+</span><span id="line-79"></span><span class="annot"><a href="GHC.Driver.Ways.html#waysTag"><span class="hs-identifier hs-type">waysTag</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../containers/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
+</span><span id="line-80"></span><span id="waysTag"><span class="annot"><span class="annottext">waysTag :: Set Way -&gt; String
+</span><a href="GHC.Driver.Ways.html#waysTag"><span class="hs-identifier hs-var hs-var">waysTag</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[String] -&gt; String
+forall (t :: * -&gt; *) a. Foldable t =&gt; t [a] -&gt; [a]
+</span><a href="../../base/src/Data.Foldable.html#concat"><span class="hs-identifier hs-var">concat</span></a></span><span> </span><span class="annot"><span class="annottext">([String] -&gt; String) -&gt; (Set Way -&gt; [String]) -&gt; Set Way -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; [String] -&gt; [String]
+forall a. a -&gt; [a] -&gt; [a]
+</span><a href="../../base/src/Data.OldList.html#intersperse"><span class="hs-identifier hs-var">intersperse</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;_&quot;</span></span><span> </span><span class="annot"><span class="annottext">([String] -&gt; [String])
+-&gt; (Set Way -&gt; [String]) -&gt; Set Way -&gt; [String]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(Way -&gt; String) -&gt; [Way] -&gt; [String]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><a href="../../base/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">Way -&gt; String
+</span><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier hs-var">wayTag</span></a></span><span> </span><span class="annot"><span class="annottext">([Way] -&gt; [String]) -&gt; (Set Way -&gt; [Way]) -&gt; Set Way -&gt; [String]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Set Way -&gt; [Way]
+forall a. Set a -&gt; [a]
+</span><a href="../../containers/src/Data.Set.Internal.html#toAscList"><span class="hs-identifier hs-var">Set.toAscList</span></a></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- | Unique build-tag associated to a list of ways</span><span>
+</span><span id="line-83"></span><span class="hs-comment">--</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- RTS only ways are filtered out because they have no impact on the build.</span><span>
+</span><span id="line-85"></span><span class="annot"><a href="GHC.Driver.Ways.html#waysBuildTag"><span class="hs-identifier hs-type">waysBuildTag</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../containers/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
+</span><span id="line-86"></span><span id="waysBuildTag"><span class="annot"><span class="annottext">waysBuildTag :: Set Way -&gt; String
+</span><a href="GHC.Driver.Ways.html#waysBuildTag"><span class="hs-identifier hs-var hs-var">waysBuildTag</span></a></span></span><span> </span><span id="local-6989586621680828196"><span class="annot"><span class="annottext">Set Way
+</span><a href="#local-6989586621680828196"><span class="hs-identifier hs-var">ws</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set Way -&gt; String
+</span><a href="GHC.Driver.Ways.html#waysTag"><span class="hs-identifier hs-var">waysTag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Way -&gt; Bool) -&gt; Set Way -&gt; Set Way
+forall a. (a -&gt; Bool) -&gt; Set a -&gt; Set a
+</span><a href="../../containers/src/Data.Set.Internal.html#filter"><span class="hs-identifier hs-var">Set.filter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; (Way -&gt; Bool) -&gt; Way -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Way -&gt; Bool
+</span><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier hs-var">wayRTSOnly</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Set Way
+</span><a href="#local-6989586621680828196"><span class="hs-identifier hs-var">ws</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- | Unique build-tag associated to a way</span><span>
+</span><span id="line-90"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier hs-type">wayTag</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
+</span><span id="line-91"></span><span id="wayTag"><span class="annot"><span class="annottext">wayTag :: Way -&gt; String
+</span><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier hs-var hs-var">wayTag</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-type">WayCustom</span></a></span><span> </span><span id="local-6989586621680828194"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680828194"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680828194"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier hs-var">wayTag</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;thr&quot;</span></span><span>
+</span><span id="line-93"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier hs-var">wayTag</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;debug&quot;</span></span><span>
+</span><span id="line-94"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier hs-var">wayTag</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>         </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;dyn&quot;</span></span><span>
+</span><span id="line-95"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier hs-var">wayTag</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;p&quot;</span></span><span>
+</span><span id="line-96"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayTag"><span class="hs-identifier hs-var">wayTag</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;l&quot;</span></span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- | Return true for ways that only impact the RTS, not the generated code</span><span>
+</span><span id="line-99"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier hs-type">wayRTSOnly</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-100"></span><span id="wayRTSOnly"><span class="annot"><span class="annottext">wayRTSOnly :: Way -&gt; Bool
+</span><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier hs-var hs-var">wayRTSOnly</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-type">WayCustom</span></a></span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-101"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier hs-var">wayRTSOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>         </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-102"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier hs-var">wayRTSOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-103"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier hs-var">wayRTSOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-104"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier hs-var">wayRTSOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-105"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayRTSOnly"><span class="hs-identifier hs-var">wayRTSOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayDesc"><span class="hs-identifier hs-type">wayDesc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
+</span><span id="line-108"></span><span id="wayDesc"><span class="annot"><span class="annottext">wayDesc :: Way -&gt; String
+</span><a href="GHC.Driver.Ways.html#wayDesc"><span class="hs-identifier hs-var hs-var">wayDesc</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-type">WayCustom</span></a></span><span> </span><span id="local-6989586621680828193"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680828193"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680828193"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-109"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayDesc"><span class="hs-identifier hs-var">wayDesc</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Threaded&quot;</span></span><span>
+</span><span id="line-110"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayDesc"><span class="hs-identifier hs-var">wayDesc</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Debug&quot;</span></span><span>
+</span><span id="line-111"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayDesc"><span class="hs-identifier hs-var">wayDesc</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>         </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Dynamic&quot;</span></span><span>
+</span><span id="line-112"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayDesc"><span class="hs-identifier hs-var">wayDesc</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Profiling&quot;</span></span><span>
+</span><span id="line-113"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayDesc"><span class="hs-identifier hs-var">wayDesc</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;RTS Event Logging&quot;</span></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="hs-comment">-- | Turn these flags on when enabling this way</span><span>
+</span><span id="line-116"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayGeneralFlags"><span class="hs-identifier hs-type">wayGeneralFlags</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#Platform"><span class="hs-identifier hs-type">Platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Driver.Flags.html#GeneralFlag"><span class="hs-identifier hs-type">GeneralFlag</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-117"></span><span id="wayGeneralFlags"><span class="annot"><span class="annottext">wayGeneralFlags :: Platform -&gt; Way -&gt; [GeneralFlag]
+</span><a href="GHC.Driver.Ways.html#wayGeneralFlags"><span class="hs-identifier hs-var hs-var">wayGeneralFlags</span></a></span></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-type">WayCustom</span></a></span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-118"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayGeneralFlags"><span class="hs-identifier hs-var">wayGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-119"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayGeneralFlags"><span class="hs-identifier hs-var">wayGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-120"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayGeneralFlags"><span class="hs-identifier hs-var">wayGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">GeneralFlag
+</span><a href="GHC.Driver.Flags.html#Opt_PIC"><span class="hs-identifier hs-var">Opt_PIC</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">GeneralFlag
+</span><a href="GHC.Driver.Flags.html#Opt_ExternalDynamicRefs"><span class="hs-identifier hs-var">Opt_ExternalDynamicRefs</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-comment">-- We could get away without adding -fPIC when compiling the</span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-comment">-- modules of a program that is to be linked with -dynamic; the</span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-comment">-- program itself does not need to be position-independent, only</span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-comment">-- the libraries need to be.  HOWEVER, GHCi links objects into a</span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-comment">-- .so before loading the .so using the system linker.  Since only</span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-comment">-- PIC objects can be linked into a .so, we have to compile even</span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-comment">-- modules of the main program with -fPIC when using -dynamic.</span><span>
+</span><span id="line-128"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayGeneralFlags"><span class="hs-identifier hs-var">wayGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-129"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayGeneralFlags"><span class="hs-identifier hs-var">wayGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- | Turn these flags off when enabling this way</span><span>
+</span><span id="line-132"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayUnsetGeneralFlags"><span class="hs-identifier hs-type">wayUnsetGeneralFlags</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#Platform"><span class="hs-identifier hs-type">Platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Driver.Flags.html#GeneralFlag"><span class="hs-identifier hs-type">GeneralFlag</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-133"></span><span id="wayUnsetGeneralFlags"><span class="annot"><span class="annottext">wayUnsetGeneralFlags :: Platform -&gt; Way -&gt; [GeneralFlag]
+</span><a href="GHC.Driver.Ways.html#wayUnsetGeneralFlags"><span class="hs-identifier hs-var hs-var">wayUnsetGeneralFlags</span></a></span></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-type">WayCustom</span></a></span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-134"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayUnsetGeneralFlags"><span class="hs-identifier hs-var">wayUnsetGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-135"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayUnsetGeneralFlags"><span class="hs-identifier hs-var">wayUnsetGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-136"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayUnsetGeneralFlags"><span class="hs-identifier hs-var">wayUnsetGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">GeneralFlag
+</span><a href="GHC.Driver.Flags.html#Opt_SplitSections"><span class="hs-identifier hs-var">Opt_SplitSections</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-137"></span><span>   </span><span class="hs-comment">-- There's no point splitting when we're going to be dynamically linking.</span><span>
+</span><span id="line-138"></span><span>   </span><span class="hs-comment">-- Plus it breaks compilation on OSX x86.</span><span>
+</span><span id="line-139"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayUnsetGeneralFlags"><span class="hs-identifier hs-var">wayUnsetGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-140"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayUnsetGeneralFlags"><span class="hs-identifier hs-var">wayUnsetGeneralFlags</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="hs-comment">-- | Pass these options to the C compiler when enabling this way</span><span>
+</span><span id="line-143"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptc"><span class="hs-identifier hs-type">wayOptc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#Platform"><span class="hs-identifier hs-type">Platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-144"></span><span id="wayOptc"><span class="annot"><span class="annottext">wayOptc :: Platform -&gt; Way -&gt; [String]
+</span><a href="GHC.Driver.Ways.html#wayOptc"><span class="hs-identifier hs-var hs-var">wayOptc</span></a></span></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-type">WayCustom</span></a></span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-145"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptc"><span class="hs-identifier hs-var">wayOptc</span></a></span><span> </span><span id="local-6989586621680828189"><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680828189"><span class="hs-identifier hs-var">platform</span></a></span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; OS
+</span><a href="../../ghc-boot/src/GHC.Platform.html#platformOS"><span class="hs-identifier hs-var">platformOS</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680828189"><span class="hs-identifier hs-var">platform</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-146"></span><span>                               </span><span class="annot"><span class="annottext">OS
+</span><a href="../../ghc-boot/src/GHC.Platform.html#OSOpenBSD"><span class="hs-identifier hs-var">OSOpenBSD</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-pthread&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-147"></span><span>                               </span><span class="annot"><span class="annottext">OS
+</span><a href="../../ghc-boot/src/GHC.Platform.html#OSNetBSD"><span class="hs-identifier hs-var">OSNetBSD</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-pthread&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-148"></span><span>                               </span><span class="annot"><span class="annottext">OS
+</span><span class="hs-identifier">_</span></span><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-149"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptc"><span class="hs-identifier hs-var">wayOptc</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-150"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptc"><span class="hs-identifier hs-var">wayOptc</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-151"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptc"><span class="hs-identifier hs-var">wayOptc</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-DPROFILING&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-152"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptc"><span class="hs-identifier hs-var">wayOptc</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-DTRACING&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-153"></span><span>
+</span><span id="line-154"></span><span class="hs-comment">-- | Pass these options to linker when enabling this way</span><span>
+</span><span id="line-155"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptl"><span class="hs-identifier hs-type">wayOptl</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#Platform"><span class="hs-identifier hs-type">Platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-156"></span><span id="wayOptl"><span class="annot"><span class="annottext">wayOptl :: Platform -&gt; Way -&gt; [String]
+</span><a href="GHC.Driver.Ways.html#wayOptl"><span class="hs-identifier hs-var hs-var">wayOptl</span></a></span></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-type">WayCustom</span></a></span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-157"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptl"><span class="hs-identifier hs-var">wayOptl</span></a></span><span> </span><span id="local-6989586621680828185"><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680828185"><span class="hs-identifier hs-var">platform</span></a></span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-158"></span><span>   </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; OS
+</span><a href="../../ghc-boot/src/GHC.Platform.html#platformOS"><span class="hs-identifier hs-var">platformOS</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621680828185"><span class="hs-identifier hs-var">platform</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-159"></span><span>   </span><span class="hs-comment">-- N.B. FreeBSD cc throws a warning if we pass -pthread without</span><span>
+</span><span id="line-160"></span><span>   </span><span class="hs-comment">-- actually using any pthread symbols.</span><span>
+</span><span id="line-161"></span><span>   </span><span class="annot"><span class="annottext">OS
+</span><a href="../../ghc-boot/src/GHC.Platform.html#OSFreeBSD"><span class="hs-identifier hs-var">OSFreeBSD</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-pthread&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-Wno-unused-command-line-argument&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-162"></span><span>   </span><span class="annot"><span class="annottext">OS
+</span><a href="../../ghc-boot/src/GHC.Platform.html#OSOpenBSD"><span class="hs-identifier hs-var">OSOpenBSD</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-pthread&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-163"></span><span>   </span><span class="annot"><span class="annottext">OS
+</span><a href="../../ghc-boot/src/GHC.Platform.html#OSNetBSD"><span class="hs-identifier hs-var">OSNetBSD</span></a></span><span>   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-pthread&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-164"></span><span>   </span><span class="annot"><span class="annottext">OS
+</span><span class="hs-identifier">_</span></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-165"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptl"><span class="hs-identifier hs-var">wayOptl</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-166"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptl"><span class="hs-identifier hs-var">wayOptl</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-167"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptl"><span class="hs-identifier hs-var">wayOptl</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span>       </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-168"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptl"><span class="hs-identifier hs-var">wayOptl</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- | Pass these options to the preprocessor when enabling this way</span><span>
+</span><span id="line-171"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptP"><span class="hs-identifier hs-type">wayOptP</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#Platform"><span class="hs-identifier hs-type">Platform</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-172"></span><span id="wayOptP"><span class="annot"><span class="annottext">wayOptP :: Platform -&gt; Way -&gt; [String]
+</span><a href="GHC.Driver.Ways.html#wayOptP"><span class="hs-identifier hs-var hs-var">wayOptP</span></a></span></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Driver.Ways.html#WayCustom"><span class="hs-identifier hs-type">WayCustom</span></a></span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-173"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptP"><span class="hs-identifier hs-var">wayOptP</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayThreaded"><span class="hs-identifier hs-var">WayThreaded</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-174"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptP"><span class="hs-identifier hs-var">wayOptP</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDebug"><span class="hs-identifier hs-var">WayDebug</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-175"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptP"><span class="hs-identifier hs-var">wayOptP</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-176"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptP"><span class="hs-identifier hs-var">wayOptP</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-DPROFILING&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-177"></span><span class="annot"><a href="GHC.Driver.Ways.html#wayOptP"><span class="hs-identifier hs-var">wayOptP</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayEventLog"><span class="hs-identifier hs-var">WayEventLog</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;-DTRACING&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-178"></span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span class="hs-comment">-- | Consult the RTS to find whether it has been built with profiling enabled.</span><span>
+</span><span id="line-181"></span><span class="annot"><a href="GHC.Driver.Ways.html#hostIsProfiled"><span class="hs-identifier hs-type">hostIsProfiled</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-182"></span><span id="hostIsProfiled"><span class="annot"><span class="annottext">hostIsProfiled :: Bool
+</span><a href="GHC.Driver.Ways.html#hostIsProfiled"><span class="hs-identifier hs-var hs-var">hostIsProfiled</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int
+forall a. IO a -&gt; a
+</span><a href="../../base/src/GHC.IO.Unsafe.html#unsafeDupablePerformIO"><span class="hs-identifier hs-var">unsafeDupablePerformIO</span></a></span><span> </span><span class="annot"><span class="annottext">IO Int
+</span><a href="GHC.Driver.Ways.html#rtsIsProfiledIO"><span class="hs-identifier hs-var">rtsIsProfiledIO</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-183"></span><span>
+</span><span id="line-184"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">ccall</span></span><span> </span><span class="annot"><span class="hs-keyword">unsafe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;rts_isProfiled&quot;</span></span><span> </span><span id="rtsIsProfiledIO"><span class="annot"><a href="GHC.Driver.Ways.html#rtsIsProfiledIO"><span class="hs-identifier hs-var">rtsIsProfiledIO</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- | Consult the RTS to find whether GHC itself has been built with</span><span>
+</span><span id="line-187"></span><span class="hs-comment">-- dynamic linking.  This can't be statically known at compile-time,</span><span>
+</span><span id="line-188"></span><span class="hs-comment">-- because we build both the static and dynamic versions together with</span><span>
+</span><span id="line-189"></span><span class="hs-comment">-- -dynamic-too.</span><span>
+</span><span id="line-190"></span><span class="annot"><a href="GHC.Driver.Ways.html#hostIsDynamic"><span class="hs-identifier hs-type">hostIsDynamic</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-191"></span><span id="hostIsDynamic"><span class="annot"><span class="annottext">hostIsDynamic :: Bool
+</span><a href="GHC.Driver.Ways.html#hostIsDynamic"><span class="hs-identifier hs-var hs-var">hostIsDynamic</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int
+forall a. IO a -&gt; a
+</span><a href="../../base/src/GHC.IO.Unsafe.html#unsafeDupablePerformIO"><span class="hs-identifier hs-var">unsafeDupablePerformIO</span></a></span><span> </span><span class="annot"><span class="annottext">IO Int
+</span><a href="GHC.Driver.Ways.html#rtsIsDynamicIO"><span class="hs-identifier hs-var">rtsIsDynamicIO</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-192"></span><span>
+</span><span id="line-193"></span><span class="hs-keyword">foreign</span><span> </span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-keyword">ccall</span></span><span> </span><span class="annot"><span class="hs-keyword">unsafe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;rts_isDynamic&quot;</span></span><span> </span><span id="rtsIsDynamicIO"><span class="annot"><a href="GHC.Driver.Ways.html#rtsIsDynamicIO"><span class="hs-identifier hs-var">rtsIsDynamicIO</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-194"></span><span>
+</span><span id="line-195"></span><span class="hs-comment">-- | Return host &quot;full&quot; ways (i.e. ways that have an impact on the compilation,</span><span>
+</span><span id="line-196"></span><span class="hs-comment">-- not RTS only ways). These ways must be used when compiling codes targeting</span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- the internal interpreter.</span><span>
+</span><span id="line-198"></span><span class="annot"><a href="GHC.Driver.Ways.html#hostFullWays"><span class="hs-identifier hs-type">hostFullWays</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../containers/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="GHC.Driver.Ways.html#Way"><span class="hs-identifier hs-type">Way</span></a></span><span>
+</span><span id="line-199"></span><span id="hostFullWays"><span class="annot"><span class="annottext">hostFullWays :: Set Way
+</span><a href="GHC.Driver.Ways.html#hostFullWays"><span class="hs-identifier hs-var hs-var">hostFullWays</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Set Way] -&gt; Set Way
+forall (f :: * -&gt; *) a. (Foldable f, Ord a) =&gt; f (Set a) -&gt; Set a
+</span><a href="../../containers/src/Data.Set.Internal.html#unions"><span class="hs-identifier hs-var">Set.unions</span></a></span><span>
+</span><span id="line-200"></span><span>   </span><span class="hs-special">[</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="GHC.Driver.Ways.html#hostIsDynamic"><span class="hs-identifier hs-var">hostIsDynamic</span></a></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Way -&gt; Set Way
+forall a. a -&gt; Set a
+</span><a href="../../containers/src/Data.Set.Internal.html#singleton"><span class="hs-identifier hs-var">Set.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayDyn"><span class="hs-identifier hs-var">WayDyn</span></a></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Set Way
+forall a. Set a
+</span><a href="../../containers/src/Data.Set.Internal.html#empty"><span class="hs-identifier hs-var">Set.empty</span></a></span><span>
+</span><span id="line-201"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="GHC.Driver.Ways.html#hostIsProfiled"><span class="hs-identifier hs-var">hostIsProfiled</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Way -&gt; Set Way
+forall a. a -&gt; Set a
+</span><a href="../../containers/src/Data.Set.Internal.html#singleton"><span class="hs-identifier hs-var">Set.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">Way
+</span><a href="GHC.Driver.Ways.html#WayProf"><span class="hs-identifier hs-var">WayProf</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Set Way
+forall a. Set a
+</span><a href="../../containers/src/Data.Set.Internal.html#empty"><span class="hs-identifier hs-var">Set.empty</span></a></span><span>
+</span><span id="line-202"></span><span>   </span><span class="hs-special">]</span><span>
+</span><span id="line-203"></span></pre></body></html>

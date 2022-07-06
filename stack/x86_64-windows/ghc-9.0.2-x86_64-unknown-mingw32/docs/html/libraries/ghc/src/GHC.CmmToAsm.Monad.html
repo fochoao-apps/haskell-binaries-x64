@@ -1,0 +1,1050 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveFunctor #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- (c) The University of Glasgow 1993-2004</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- The native code generator's monad.</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.CmmToAsm.Monad</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-14"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NcgImpl"><span class="hs-identifier">NcgImpl</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier">NatM_State</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#mkNatM_State"><span class="hs-identifier">mkNatM_State</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier">NatM</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- instance Monad</span><span>
+</span><span id="line-18"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#initNat"><span class="hs-identifier">initNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#initConfig"><span class="hs-identifier">initConfig</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#addImportNat"><span class="hs-identifier">addImportNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#addNodeBetweenNat"><span class="hs-identifier">addNodeBetweenNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#addImmediateSuccessorNat"><span class="hs-identifier">addImmediateSuccessorNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#updateCfgNat"><span class="hs-identifier">updateCfgNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getUniqueNat"><span class="hs-identifier">getUniqueNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#mapAccumLNat"><span class="hs-identifier">mapAccumLNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#setDeltaNat"><span class="hs-identifier">setDeltaNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getConfig"><span class="hs-identifier">getConfig</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getPlatform"><span class="hs-identifier">getPlatform</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getDeltaNat"><span class="hs-identifier">getDeltaNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getThisModuleNat"><span class="hs-identifier">getThisModuleNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getBlockIdNat"><span class="hs-identifier">getBlockIdNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getNewLabelNat"><span class="hs-identifier">getNewLabelNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getNewRegNat"><span class="hs-identifier">getNewRegNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getNewRegPairNat"><span class="hs-identifier">getNewRegPairNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getPicBaseMaybeNat"><span class="hs-identifier">getPicBaseMaybeNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getPicBaseNat"><span class="hs-identifier">getPicBaseNat</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>        </span><span class="annot"><a href="GHC.Driver.Session.html#getDynFlags"><span class="hs-identifier">getDynFlags</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getModLoc"><span class="hs-identifier">getModLoc</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-39"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getFileId"><span class="hs-identifier">getFileId</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-40"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getDebugBlock"><span class="hs-identifier">getDebugBlock</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span>        </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#DwarfFiles"><span class="hs-identifier">DwarfFiles</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">where</span><span class="hs-cpp">
+
+#include &quot;HsVersions.h&quot;
+</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Prelude.html"><span class="hs-identifier">GHC.Prelude</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#"><span class="hs-identifier">GHC.Platform</span></a></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Platform.Reg.html"><span class="hs-identifier">GHC.Platform.Reg</span></a></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Format.html"><span class="hs-identifier">GHC.CmmToAsm.Format</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Reg.Target.html"><span class="hs-identifier">GHC.CmmToAsm.Reg.Target</span></a></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Config.html"><span class="hs-identifier">GHC.CmmToAsm.Config</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Cmm.BlockId.html"><span class="hs-identifier">GHC.Cmm.BlockId</span></a></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Cmm.Dataflow.Collections.html"><span class="hs-identifier">GHC.Cmm.Dataflow.Collections</span></a></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Cmm.Dataflow.Label.html"><span class="hs-identifier">GHC.Cmm.Dataflow.Label</span></a></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Cmm.CLabel.html"><span class="hs-identifier">GHC.Cmm.CLabel</span></a></span><span>           </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.Cmm.CLabel.html#CLabel"><span class="hs-identifier">CLabel</span></a></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Cmm.DebugBlock.html"><span class="hs-identifier">GHC.Cmm.DebugBlock</span></a></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Data.FastString.html"><span class="hs-identifier">GHC.Data.FastString</span></a></span><span>      </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.Data.FastString.html#FastString"><span class="hs-identifier">FastString</span></a></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.Unique.FM.html"><span class="hs-identifier">GHC.Types.Unique.FM</span></a></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html"><span class="hs-identifier">GHC.Types.Unique.Supply</span></a></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Types.Unique.html"><span class="hs-identifier">GHC.Types.Unique</span></a></span><span>         </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier">Unique</span></a></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html"><span class="hs-identifier">GHC.Driver.Session</span></a></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Unit.Module.html"><span class="hs-identifier">GHC.Unit.Module</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Control.Monad.html#"><span class="hs-identifier">Control.Monad</span></a></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#ap"><span class="hs-identifier">ap</span></a></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Instr.html"><span class="hs-identifier">GHC.CmmToAsm.Instr</span></a></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Utils.Outputable.html"><span class="hs-identifier">GHC.Utils.Outputable</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Utils.Outputable.html#SDoc"><span class="hs-identifier">SDoc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Utils.Outputable.html#pprPanic"><span class="hs-identifier">pprPanic</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier">ppr</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.Cmm.html"><span class="hs-identifier">GHC.Cmm</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Cmm.html#RawCmmDecl"><span class="hs-identifier">RawCmmDecl</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.Cmm.html#RawCmmStatics"><span class="hs-identifier">RawCmmStatics</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.CFG.html"><span class="hs-identifier">GHC.CmmToAsm.CFG</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">data</span><span> </span><span id="NcgImpl"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NcgImpl"><span class="hs-identifier hs-var">NcgImpl</span></a></span></span><span> </span><span id="local-6989586621681033411"><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span></span><span> </span><span id="local-6989586621681033410"><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span></span><span> </span><span id="local-6989586621681033409"><span class="annot"><a href="#local-6989586621681033409"><span class="hs-identifier hs-type">jumpDest</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NcgImpl"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NcgImpl"><span class="hs-identifier hs-var">NcgImpl</span></a></span></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-77"></span><span>    </span><span id="ncgConfig"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest -&gt; NCGConfig
+</span><a href="GHC.CmmToAsm.Monad.html#ncgConfig"><span class="hs-identifier hs-var hs-var">ncgConfig</span></a></span></span><span>                 </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="GHC.CmmToAsm.Config.html#NCGConfig"><span class="hs-identifier hs-type">NCGConfig</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-78"></span><span>    </span><span id="cmmTopCodeGen"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest
+-&gt; RawCmmDecl -&gt; NatM [NatCmmDecl statics instr]
+</span><a href="GHC.CmmToAsm.Monad.html#cmmTopCodeGen"><span class="hs-identifier hs-var hs-var">cmmTopCodeGen</span></a></span></span><span>             </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Cmm.html#RawCmmDecl"><span class="hs-identifier hs-type">RawCmmDecl</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatCmmDecl"><span class="hs-identifier hs-type">NatCmmDecl</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-79"></span><span>    </span><span id="generateJumpTableForInstr"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest
+-&gt; instr -&gt; Maybe (NatCmmDecl statics instr)
+</span><a href="GHC.CmmToAsm.Monad.html#generateJumpTableForInstr"><span class="hs-identifier hs-var hs-var">generateJumpTableForInstr</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatCmmDecl"><span class="hs-identifier hs-type">NatCmmDecl</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-80"></span><span>    </span><span id="getJumpDestBlockId"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest -&gt; jumpDest -&gt; Maybe BlockId
+</span><a href="GHC.CmmToAsm.Monad.html#getJumpDestBlockId"><span class="hs-identifier hs-var hs-var">getJumpDestBlockId</span></a></span></span><span>        </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681033409"><span class="hs-identifier hs-type">jumpDest</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-81"></span><span>    </span><span id="canShortcut"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest -&gt; instr -&gt; Maybe jumpDest
+</span><a href="GHC.CmmToAsm.Monad.html#canShortcut"><span class="hs-identifier hs-var hs-var">canShortcut</span></a></span></span><span>               </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033409"><span class="hs-identifier hs-type">jumpDest</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-82"></span><span>    </span><span id="shortcutStatics"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest
+-&gt; (BlockId -&gt; Maybe jumpDest) -&gt; statics -&gt; statics
+</span><a href="GHC.CmmToAsm.Monad.html#shortcutStatics"><span class="hs-identifier hs-var hs-var">shortcutStatics</span></a></span></span><span>           </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033409"><span class="hs-identifier hs-type">jumpDest</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-83"></span><span>    </span><span id="shortcutJump"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest
+-&gt; (BlockId -&gt; Maybe jumpDest) -&gt; instr -&gt; instr
+</span><a href="GHC.CmmToAsm.Monad.html#shortcutJump"><span class="hs-identifier hs-var hs-var">shortcutJump</span></a></span></span><span>              </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033409"><span class="hs-identifier hs-type">jumpDest</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-84"></span><span>    </span><span id="pprNatCmmDecl"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest -&gt; NatCmmDecl statics instr -&gt; SDoc
+</span><a href="GHC.CmmToAsm.Monad.html#pprNatCmmDecl"><span class="hs-identifier hs-var hs-var">pprNatCmmDecl</span></a></span></span><span>             </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatCmmDecl"><span class="hs-identifier hs-type">NatCmmDecl</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Utils.Outputable.html#SDoc"><span class="hs-identifier hs-type">SDoc</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-85"></span><span>    </span><span id="maxSpillSlots"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest -&gt; Int
+</span><a href="GHC.CmmToAsm.Monad.html#maxSpillSlots"><span class="hs-identifier hs-var hs-var">maxSpillSlots</span></a></span></span><span>             </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span>
+</span><span id="line-86"></span><span>    </span><span id="allocatableRegs"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest -&gt; [RealReg]
+</span><a href="GHC.CmmToAsm.Monad.html#allocatableRegs"><span class="hs-identifier hs-var hs-var">allocatableRegs</span></a></span></span><span>           </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Platform.Reg.html#RealReg"><span class="hs-identifier hs-type">RealReg</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-87"></span><span>    </span><span id="ncgExpandTop"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest
+-&gt; [NatCmmDecl statics instr] -&gt; [NatCmmDecl statics instr]
+</span><a href="GHC.CmmToAsm.Monad.html#ncgExpandTop"><span class="hs-identifier hs-var hs-var">ncgExpandTop</span></a></span></span><span>              </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatCmmDecl"><span class="hs-identifier hs-type">NatCmmDecl</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatCmmDecl"><span class="hs-identifier hs-type">NatCmmDecl</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-88"></span><span>    </span><span id="ncgAllocMoreStack"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest
+-&gt; Int
+-&gt; NatCmmDecl statics instr
+-&gt; UniqSM (NatCmmDecl statics instr, [(BlockId, BlockId)])
+</span><a href="GHC.CmmToAsm.Monad.html#ncgAllocMoreStack"><span class="hs-identifier hs-var hs-var">ncgAllocMoreStack</span></a></span></span><span>         </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatCmmDecl"><span class="hs-identifier hs-type">NatCmmDecl</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span>
+</span><span id="line-89"></span><span>                              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSM"><span class="hs-identifier hs-type">UniqSM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatCmmDecl"><span class="hs-identifier hs-type">NatCmmDecl</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033411"><span class="hs-identifier hs-type">statics</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span class="hs-special">,</span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-comment">-- ^ The list of block ids records the redirected jumps to allow us to update</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-comment">-- the CFG.</span><span>
+</span><span id="line-92"></span><span>    </span><span id="ncgMakeFarBranches"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest
+-&gt; LabelMap RawCmmStatics
+-&gt; [NatBasicBlock instr]
+-&gt; [NatBasicBlock instr]
+</span><a href="GHC.CmmToAsm.Monad.html#ncgMakeFarBranches"><span class="hs-identifier hs-var hs-var">ncgMakeFarBranches</span></a></span></span><span>        </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Cmm.Dataflow.Label.html#LabelMap"><span class="hs-identifier hs-type">LabelMap</span></a></span><span> </span><span class="annot"><a href="GHC.Cmm.html#RawCmmStatics"><span class="hs-identifier hs-type">RawCmmStatics</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatBasicBlock"><span class="hs-identifier hs-type">NatBasicBlock</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatBasicBlock"><span class="hs-identifier hs-type">NatBasicBlock</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-93"></span><span>    </span><span id="extractUnwindPoints"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest -&gt; [instr] -&gt; [UnwindPoint]
+</span><a href="GHC.CmmToAsm.Monad.html#extractUnwindPoints"><span class="hs-identifier hs-var hs-var">extractUnwindPoints</span></a></span></span><span>       </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.Cmm.DebugBlock.html#UnwindPoint"><span class="hs-identifier hs-type">UnwindPoint</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-comment">-- ^ given the instruction sequence of a block, produce a list of</span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-comment">-- the block's 'UnwindPoint's</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-comment">-- See Note [What is this unwinding business?] in &quot;GHC.Cmm.DebugBlock&quot;</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-comment">-- and Note [Unwinding information in the NCG] in this module.</span><span>
+</span><span id="line-98"></span><span>    </span><span id="invertCondBranches"><span class="annot"><span class="annottext">forall statics instr jumpDest.
+NcgImpl statics instr jumpDest
+-&gt; Maybe CFG
+-&gt; LabelMap RawCmmStatics
+-&gt; [NatBasicBlock instr]
+-&gt; [NatBasicBlock instr]
+</span><a href="GHC.CmmToAsm.Monad.html#invertCondBranches"><span class="hs-identifier hs-var hs-var">invertCondBranches</span></a></span></span><span>        </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="GHC.CmmToAsm.CFG.html#CFG"><span class="hs-identifier hs-type">CFG</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Cmm.Dataflow.Label.html#LabelMap"><span class="hs-identifier hs-type">LabelMap</span></a></span><span> </span><span class="annot"><a href="GHC.Cmm.html#RawCmmStatics"><span class="hs-identifier hs-type">RawCmmStatics</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatBasicBlock"><span class="hs-identifier hs-type">NatBasicBlock</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-99"></span><span>                              </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="GHC.CmmToAsm.Instr.html#NatBasicBlock"><span class="hs-identifier hs-type">NatBasicBlock</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033410"><span class="hs-identifier hs-type">instr</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-comment">-- ^ Turn the sequence of @jcc l1; jmp l2@ into @jncc l2; \&lt;block_l1&gt;@</span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-comment">-- when possible.</span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="hs-keyword">data</span><span> </span><span id="NatM_State"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-var">NatM_State</span></a></span></span><span>
+</span><span id="line-105"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span id="NatM_State"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-var">NatM_State</span></a></span></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-106"></span><span>                </span><span id="natm_us"><span class="annot"><span class="annottext">NatM_State -&gt; UniqSupply
+</span><a href="GHC.CmmToAsm.Monad.html#natm_us"><span class="hs-identifier hs-var hs-var">natm_us</span></a></span></span><span>          </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-107"></span><span>                </span><span id="natm_delta"><span class="annot"><span class="annottext">NatM_State -&gt; Int
+</span><a href="GHC.CmmToAsm.Monad.html#natm_delta"><span class="hs-identifier hs-var hs-var">natm_delta</span></a></span></span><span>       </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span>
+</span><span id="line-108"></span><span>                </span><span id="natm_imports"><span class="annot"><span class="annottext">NatM_State -&gt; [CLabel]
+</span><a href="GHC.CmmToAsm.Monad.html#natm_imports"><span class="hs-identifier hs-var hs-var">natm_imports</span></a></span></span><span>     </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="GHC.Cmm.CLabel.html#CLabel"><span class="hs-identifier hs-type">CLabel</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-109"></span><span>                </span><span id="natm_pic"><span class="annot"><span class="annottext">NatM_State -&gt; Maybe Reg
+</span><a href="GHC.CmmToAsm.Monad.html#natm_pic"><span class="hs-identifier hs-var hs-var">natm_pic</span></a></span></span><span>         </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="GHC.Platform.Reg.html#Reg"><span class="hs-identifier hs-type">Reg</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-110"></span><span>                </span><span id="natm_dflags"><span class="annot"><span class="annottext">NatM_State -&gt; DynFlags
+</span><a href="GHC.CmmToAsm.Monad.html#natm_dflags"><span class="hs-identifier hs-var hs-var">natm_dflags</span></a></span></span><span>      </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html#DynFlags"><span class="hs-identifier hs-type">DynFlags</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-111"></span><span>                </span><span id="natm_config"><span class="annot"><span class="annottext">NatM_State -&gt; NCGConfig
+</span><a href="GHC.CmmToAsm.Monad.html#natm_config"><span class="hs-identifier hs-var hs-var">natm_config</span></a></span></span><span>      </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Config.html#NCGConfig"><span class="hs-identifier hs-type">NCGConfig</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-112"></span><span>                </span><span id="natm_this_module"><span class="annot"><span class="annottext">NatM_State -&gt; Module
+</span><a href="GHC.CmmToAsm.Monad.html#natm_this_module"><span class="hs-identifier hs-var hs-var">natm_this_module</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Unit.Types.html#Module"><span class="hs-identifier hs-type">Module</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-113"></span><span>                </span><span id="natm_modloc"><span class="annot"><span class="annottext">NatM_State -&gt; ModLocation
+</span><a href="GHC.CmmToAsm.Monad.html#natm_modloc"><span class="hs-identifier hs-var hs-var">natm_modloc</span></a></span></span><span>      </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Unit.Module.Location.html#ModLocation"><span class="hs-identifier hs-type">ModLocation</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-114"></span><span>                </span><span id="natm_fileid"><span class="annot"><span class="annottext">NatM_State -&gt; DwarfFiles
+</span><a href="GHC.CmmToAsm.Monad.html#natm_fileid"><span class="hs-identifier hs-var hs-var">natm_fileid</span></a></span></span><span>      </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#DwarfFiles"><span class="hs-identifier hs-type">DwarfFiles</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-115"></span><span>                </span><span id="natm_debug_map"><span class="annot"><span class="annottext">NatM_State -&gt; LabelMap DebugBlock
+</span><a href="GHC.CmmToAsm.Monad.html#natm_debug_map"><span class="hs-identifier hs-var hs-var">natm_debug_map</span></a></span></span><span>   </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Cmm.Dataflow.Label.html#LabelMap"><span class="hs-identifier hs-type">LabelMap</span></a></span><span> </span><span class="annot"><a href="GHC.Cmm.DebugBlock.html#DebugBlock"><span class="hs-identifier hs-type">DebugBlock</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-116"></span><span>                </span><span id="natm_cfg"><span class="annot"><span class="annottext">NatM_State -&gt; CFG
+</span><a href="GHC.CmmToAsm.Monad.html#natm_cfg"><span class="hs-identifier hs-var hs-var">natm_cfg</span></a></span></span><span>         </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.CFG.html#CFG"><span class="hs-identifier hs-type">CFG</span></a></span><span>
+</span><span id="line-117"></span><span>        </span><span class="hs-comment">-- ^ Having a CFG with additional information is essential for some</span><span>
+</span><span id="line-118"></span><span>        </span><span class="hs-comment">-- operations. However we can't reconstruct all information once we</span><span>
+</span><span id="line-119"></span><span>        </span><span class="hs-comment">-- generated instructions. So instead we update the CFG as we go.</span><span>
+</span><span id="line-120"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="hs-keyword">type</span><span> </span><span id="DwarfFiles"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#DwarfFiles"><span class="hs-identifier hs-var">DwarfFiles</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="GHC.Types.Unique.FM.html#UniqFM"><span class="hs-identifier hs-type">UniqFM</span></a></span><span> </span><span class="annot"><a href="GHC.Data.FastString.html#FastString"><span class="hs-identifier hs-type">FastString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Data.FastString.html#FastString"><span class="hs-identifier hs-type">FastString</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-keyword">newtype</span><span> </span><span id="NatM"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span></span><span> </span><span id="local-6989586621681033292"><span class="annot"><a href="#local-6989586621681033292"><span class="hs-identifier hs-type">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NatM"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-type">NatM_State</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681033292"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-type">NatM_State</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681033150"><span id="local-6989586621681033152"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; NatM a -&gt; NatM b)
+-&gt; (forall a b. a -&gt; NatM b -&gt; NatM a) -&gt; Functor NatM
+forall a b. a -&gt; NatM b -&gt; NatM a
+forall a b. (a -&gt; b) -&gt; NatM a -&gt; NatM b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: forall a b. a -&gt; NatM b -&gt; NatM a
+$c&lt;$ :: forall a b. a -&gt; NatM b -&gt; NatM a
+fmap :: forall a b. (a -&gt; b) -&gt; NatM a -&gt; NatM b
+$cfmap :: forall a b. (a -&gt; b) -&gt; NatM a -&gt; NatM b
+</span><a href="../../base/src/GHC.Base.html#Functor"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span id="local-6989586621681033337"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#unNat"><span class="hs-identifier hs-type">unNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033337"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-type">NatM_State</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681033337"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-type">NatM_State</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-128"></span><span id="unNat"><span class="annot"><span class="annottext">unNat :: forall a. NatM a -&gt; NatM_State -&gt; (a, NatM_State)
+</span><a href="GHC.CmmToAsm.Monad.html#unNat"><span class="hs-identifier hs-var hs-var">unNat</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span id="local-6989586621681033147"><span class="annot"><span class="annottext">NatM_State -&gt; (a, NatM_State)
+</span><a href="#local-6989586621681033147"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NatM_State -&gt; (a, NatM_State)
+</span><a href="#local-6989586621681033147"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#mkNatM_State"><span class="hs-identifier hs-type">mkNatM_State</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Types.Unique.Supply.html#UniqSupply"><span class="hs-identifier hs-type">UniqSupply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html#DynFlags"><span class="hs-identifier hs-type">DynFlags</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Unit.Types.html#Module"><span class="hs-identifier hs-type">Module</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Unit.Module.Location.html#ModLocation"><span class="hs-identifier hs-type">ModLocation</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-131"></span><span>                </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#DwarfFiles"><span class="hs-identifier hs-type">DwarfFiles</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Cmm.Dataflow.Label.html#LabelMap"><span class="hs-identifier hs-type">LabelMap</span></a></span><span> </span><span class="annot"><a href="GHC.Cmm.DebugBlock.html#DebugBlock"><span class="hs-identifier hs-type">DebugBlock</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.CFG.html#CFG"><span class="hs-identifier hs-type">CFG</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-type">NatM_State</span></a></span><span>
+</span><span id="line-132"></span><span id="mkNatM_State"><span class="annot"><span class="annottext">mkNatM_State :: UniqSupply
+-&gt; Int
+-&gt; DynFlags
+-&gt; Module
+-&gt; ModLocation
+-&gt; DwarfFiles
+-&gt; LabelMap DebugBlock
+-&gt; CFG
+-&gt; NatM_State
+</span><a href="GHC.CmmToAsm.Monad.html#mkNatM_State"><span class="hs-identifier hs-var hs-var">mkNatM_State</span></a></span></span><span> </span><span id="local-6989586621681033146"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033146"><span class="hs-identifier hs-var">us</span></a></span></span><span> </span><span id="local-6989586621681033145"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681033145"><span class="hs-identifier hs-var">delta</span></a></span></span><span> </span><span id="local-6989586621681033144"><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033144"><span class="hs-identifier hs-var">dflags</span></a></span></span><span> </span><span id="local-6989586621681033143"><span class="annot"><span class="annottext">Module
+</span><a href="#local-6989586621681033143"><span class="hs-identifier hs-var">this_mod</span></a></span></span><span>
+</span><span id="line-133"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681033142"><span class="annot"><span class="annottext">ModLocation
+</span><a href="#local-6989586621681033142"><span class="hs-identifier hs-var">loc</span></a></span></span><span> </span><span id="local-6989586621681033141"><span class="annot"><span class="annottext">DwarfFiles
+</span><a href="#local-6989586621681033141"><span class="hs-identifier hs-var">dwf</span></a></span></span><span> </span><span id="local-6989586621681033140"><span class="annot"><span class="annottext">LabelMap DebugBlock
+</span><a href="#local-6989586621681033140"><span class="hs-identifier hs-var">dbg</span></a></span></span><span> </span><span id="local-6989586621681033139"><span class="annot"><span class="annottext">CFG
+</span><a href="#local-6989586621681033139"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-134"></span><span>                </span><span class="annot"><span class="annottext">NatM_State :: UniqSupply
+-&gt; Int
+-&gt; [CLabel]
+-&gt; Maybe Reg
+-&gt; DynFlags
+-&gt; NCGConfig
+-&gt; Module
+-&gt; ModLocation
+-&gt; DwarfFiles
+-&gt; LabelMap DebugBlock
+-&gt; CFG
+-&gt; NatM_State
+</span><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-type">NatM_State</span></a></span><span>
+</span><span id="line-135"></span><span>                        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">natm_us :: UniqSupply
+</span><a href="GHC.CmmToAsm.Monad.html#natm_us"><span class="hs-identifier hs-var">natm_us</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033146"><span class="hs-identifier hs-var">us</span></a></span><span>
+</span><span id="line-136"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_delta :: Int
+</span><a href="GHC.CmmToAsm.Monad.html#natm_delta"><span class="hs-identifier hs-var">natm_delta</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681033145"><span class="hs-identifier hs-var">delta</span></a></span><span>
+</span><span id="line-137"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_imports :: [CLabel]
+</span><a href="GHC.CmmToAsm.Monad.html#natm_imports"><span class="hs-identifier hs-var">natm_imports</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-138"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_pic :: Maybe Reg
+</span><a href="GHC.CmmToAsm.Monad.html#natm_pic"><span class="hs-identifier hs-var">natm_pic</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Reg
+forall a. Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-139"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_dflags :: DynFlags
+</span><a href="GHC.CmmToAsm.Monad.html#natm_dflags"><span class="hs-identifier hs-var">natm_dflags</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033144"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-140"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_config :: NCGConfig
+</span><a href="GHC.CmmToAsm.Monad.html#natm_config"><span class="hs-identifier hs-var">natm_config</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; NCGConfig
+</span><a href="GHC.CmmToAsm.Monad.html#initConfig"><span class="hs-identifier hs-var">initConfig</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033144"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-141"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_this_module :: Module
+</span><a href="GHC.CmmToAsm.Monad.html#natm_this_module"><span class="hs-identifier hs-var">natm_this_module</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Module
+</span><a href="#local-6989586621681033143"><span class="hs-identifier hs-var">this_mod</span></a></span><span>
+</span><span id="line-142"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_modloc :: ModLocation
+</span><a href="GHC.CmmToAsm.Monad.html#natm_modloc"><span class="hs-identifier hs-var">natm_modloc</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ModLocation
+</span><a href="#local-6989586621681033142"><span class="hs-identifier hs-var">loc</span></a></span><span>
+</span><span id="line-143"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_fileid :: DwarfFiles
+</span><a href="GHC.CmmToAsm.Monad.html#natm_fileid"><span class="hs-identifier hs-var">natm_fileid</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DwarfFiles
+</span><a href="#local-6989586621681033141"><span class="hs-identifier hs-var">dwf</span></a></span><span>
+</span><span id="line-144"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_debug_map :: LabelMap DebugBlock
+</span><a href="GHC.CmmToAsm.Monad.html#natm_debug_map"><span class="hs-identifier hs-var">natm_debug_map</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LabelMap DebugBlock
+</span><a href="#local-6989586621681033140"><span class="hs-identifier hs-var">dbg</span></a></span><span>
+</span><span id="line-145"></span><span>                        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">natm_cfg :: CFG
+</span><a href="GHC.CmmToAsm.Monad.html#natm_cfg"><span class="hs-identifier hs-var">natm_cfg</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CFG
+</span><a href="#local-6989586621681033139"><span class="hs-identifier hs-var">cfg</span></a></span><span>
+</span><span id="line-146"></span><span>                        </span><span class="hs-special">}</span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- | Initialize the native code generator configuration from the DynFlags</span><span>
+</span><span id="line-149"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#initConfig"><span class="hs-identifier hs-type">initConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html#DynFlags"><span class="hs-identifier hs-type">DynFlags</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Config.html#NCGConfig"><span class="hs-identifier hs-type">NCGConfig</span></a></span><span>
+</span><span id="line-150"></span><span id="initConfig"><span class="annot"><span class="annottext">initConfig :: DynFlags -&gt; NCGConfig
+</span><a href="GHC.CmmToAsm.Monad.html#initConfig"><span class="hs-identifier hs-var hs-var">initConfig</span></a></span></span><span> </span><span id="local-6989586621681033138"><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NCGConfig :: Platform
+-&gt; Maybe Int
+-&gt; Int
+-&gt; Bool
+-&gt; Bool
+-&gt; Word
+-&gt; Word
+-&gt; Bool
+-&gt; Int
+-&gt; Bool
+-&gt; Bool
+-&gt; Bool
+-&gt; Maybe SseVersion
+-&gt; Maybe BmiVersion
+-&gt; Bool
+-&gt; Bool
+-&gt; Bool
+-&gt; NCGConfig
+</span><a href="GHC.CmmToAsm.Config.html#NCGConfig"><span class="hs-identifier hs-type">NCGConfig</span></a></span><span>
+</span><span id="line-151"></span><span>   </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">ncgPlatform :: Platform
+</span><a href="GHC.CmmToAsm.Config.html#ncgPlatform"><span class="hs-identifier hs-var">ncgPlatform</span></a></span><span>              </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Platform
+</span><a href="GHC.Driver.Session.html#targetPlatform"><span class="hs-identifier hs-var hs-var">targetPlatform</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-152"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgProcAlignment :: Maybe Int
+</span><a href="GHC.CmmToAsm.Config.html#ncgProcAlignment"><span class="hs-identifier hs-var">ncgProcAlignment</span></a></span><span>         </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Maybe Int
+</span><a href="GHC.Driver.Session.html#cmmProcAlignment"><span class="hs-identifier hs-var hs-var">cmmProcAlignment</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-153"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgDebugLevel :: Int
+</span><a href="GHC.CmmToAsm.Config.html#ncgDebugLevel"><span class="hs-identifier hs-var">ncgDebugLevel</span></a></span><span>            </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Int
+</span><a href="GHC.Driver.Session.html#debugLevel"><span class="hs-identifier hs-var hs-var">debugLevel</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-154"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgExternalDynamicRefs :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgExternalDynamicRefs"><span class="hs-identifier hs-var">ncgExternalDynamicRefs</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GeneralFlag -&gt; DynFlags -&gt; Bool
+</span><a href="GHC.Driver.Session.html#gopt"><span class="hs-identifier hs-var">gopt</span></a></span><span> </span><span class="annot"><span class="annottext">GeneralFlag
+</span><a href="GHC.Driver.Flags.html#Opt_ExternalDynamicRefs"><span class="hs-identifier hs-var">Opt_ExternalDynamicRefs</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-155"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgPIC :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgPIC"><span class="hs-identifier hs-var">ncgPIC</span></a></span><span>                   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Bool
+</span><a href="GHC.Driver.Session.html#positionIndependent"><span class="hs-identifier hs-var">positionIndependent</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-156"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgInlineThresholdMemcpy :: Word
+</span><a href="GHC.CmmToAsm.Config.html#ncgInlineThresholdMemcpy"><span class="hs-identifier hs-var">ncgInlineThresholdMemcpy</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Word) -&gt; Int -&gt; Word
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Int
+</span><a href="GHC.Driver.Session.html#maxInlineMemcpyInsns"><span class="hs-identifier hs-var hs-var">maxInlineMemcpyInsns</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-157"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgInlineThresholdMemset :: Word
+</span><a href="GHC.CmmToAsm.Config.html#ncgInlineThresholdMemset"><span class="hs-identifier hs-var">ncgInlineThresholdMemset</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Word) -&gt; Int -&gt; Word
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Int
+</span><a href="GHC.Driver.Session.html#maxInlineMemsetInsns"><span class="hs-identifier hs-var hs-var">maxInlineMemsetInsns</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-158"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgSplitSections :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgSplitSections"><span class="hs-identifier hs-var">ncgSplitSections</span></a></span><span>         </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GeneralFlag -&gt; DynFlags -&gt; Bool
+</span><a href="GHC.Driver.Session.html#gopt"><span class="hs-identifier hs-var">gopt</span></a></span><span> </span><span class="annot"><span class="annottext">GeneralFlag
+</span><a href="GHC.Driver.Flags.html#Opt_SplitSections"><span class="hs-identifier hs-var">Opt_SplitSections</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-159"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgSpillPreallocSize :: Int
+</span><a href="GHC.CmmToAsm.Config.html#ncgSpillPreallocSize"><span class="hs-identifier hs-var">ncgSpillPreallocSize</span></a></span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Int
+</span><a href="GHC.Driver.Session.html#rESERVED_C_STACK_BYTES"><span class="hs-identifier hs-var">rESERVED_C_STACK_BYTES</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-160"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgRegsIterative :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgRegsIterative"><span class="hs-identifier hs-var">ncgRegsIterative</span></a></span><span>         </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GeneralFlag -&gt; DynFlags -&gt; Bool
+</span><a href="GHC.Driver.Session.html#gopt"><span class="hs-identifier hs-var">gopt</span></a></span><span> </span><span class="annot"><span class="annottext">GeneralFlag
+</span><a href="GHC.Driver.Flags.html#Opt_RegsIterative"><span class="hs-identifier hs-var">Opt_RegsIterative</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-161"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgAsmLinting :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgAsmLinting"><span class="hs-identifier hs-var">ncgAsmLinting</span></a></span><span>            </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GeneralFlag -&gt; DynFlags -&gt; Bool
+</span><a href="GHC.Driver.Session.html#gopt"><span class="hs-identifier hs-var">gopt</span></a></span><span> </span><span class="annot"><span class="annottext">GeneralFlag
+</span><a href="GHC.Driver.Flags.html#Opt_DoAsmLinting"><span class="hs-identifier hs-var">Opt_DoAsmLinting</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span>     </span><span class="hs-comment">-- With -O1 and greater, the cmmSink pass does constant-folding, so</span><span>
+</span><span id="line-164"></span><span>     </span><span class="hs-comment">-- we don't need to do it again in the native code generator.</span><span>
+</span><span id="line-165"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgDoConstantFolding :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgDoConstantFolding"><span class="hs-identifier hs-var">ncgDoConstantFolding</span></a></span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Int
+</span><a href="GHC.Driver.Session.html#optLevel"><span class="hs-identifier hs-var hs-var">optLevel</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgDumpRegAllocStages :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgDumpRegAllocStages"><span class="hs-identifier hs-var">ncgDumpRegAllocStages</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DumpFlag -&gt; DynFlags -&gt; Bool
+</span><a href="GHC.Driver.Session.html#dopt"><span class="hs-identifier hs-var">dopt</span></a></span><span> </span><span class="annot"><span class="annottext">DumpFlag
+</span><a href="GHC.Driver.Flags.html#Opt_D_dump_asm_regalloc_stages"><span class="hs-identifier hs-var">Opt_D_dump_asm_regalloc_stages</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-168"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgDumpAsmStats :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgDumpAsmStats"><span class="hs-identifier hs-var">ncgDumpAsmStats</span></a></span><span>          </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DumpFlag -&gt; DynFlags -&gt; Bool
+</span><a href="GHC.Driver.Session.html#dopt"><span class="hs-identifier hs-var">dopt</span></a></span><span> </span><span class="annot"><span class="annottext">DumpFlag
+</span><a href="GHC.Driver.Flags.html#Opt_D_dump_asm_stats"><span class="hs-identifier hs-var">Opt_D_dump_asm_stats</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-169"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgDumpAsmConflicts :: Bool
+</span><a href="GHC.CmmToAsm.Config.html#ncgDumpAsmConflicts"><span class="hs-identifier hs-var">ncgDumpAsmConflicts</span></a></span><span>      </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DumpFlag -&gt; DynFlags -&gt; Bool
+</span><a href="GHC.Driver.Session.html#dopt"><span class="hs-identifier hs-var">dopt</span></a></span><span> </span><span class="annot"><span class="annottext">DumpFlag
+</span><a href="GHC.Driver.Flags.html#Opt_D_dump_asm_conflicts"><span class="hs-identifier hs-var">Opt_D_dump_asm_conflicts</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-170"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgBmiVersion :: Maybe BmiVersion
+</span><a href="GHC.CmmToAsm.Config.html#ncgBmiVersion"><span class="hs-identifier hs-var">ncgBmiVersion</span></a></span><span>            </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#platformArch"><span class="hs-identifier hs-var">platformArch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DynFlags -&gt; Platform
+</span><a href="GHC.Driver.Session.html#targetPlatform"><span class="hs-identifier hs-var hs-var">targetPlatform</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-171"></span><span>                                 </span><span class="annot"><span class="annottext">Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#ArchX86_64"><span class="hs-identifier hs-var">ArchX86_64</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Maybe BmiVersion
+</span><a href="GHC.Driver.Session.html#bmiVersion"><span class="hs-identifier hs-var hs-var">bmiVersion</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-172"></span><span>                                 </span><span class="annot"><span class="annottext">Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#ArchX86"><span class="hs-identifier hs-var">ArchX86</span></a></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Maybe BmiVersion
+</span><a href="GHC.Driver.Session.html#bmiVersion"><span class="hs-identifier hs-var hs-var">bmiVersion</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-173"></span><span>                                 </span><span class="annot"><span class="annottext">Arch
+</span><span class="hs-identifier">_</span></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe BmiVersion
+forall a. Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span>     </span><span class="hs-comment">-- We Assume  SSE1 and SSE2 operations are available on both</span><span>
+</span><span id="line-176"></span><span>     </span><span class="hs-comment">-- x86 and x86_64. Historically we didn't default to SSE2 and</span><span>
+</span><span id="line-177"></span><span>     </span><span class="hs-comment">-- SSE1 on x86, which results in defacto nondeterminism for how</span><span>
+</span><span id="line-178"></span><span>     </span><span class="hs-comment">-- rounding behaves in the associated x87 floating point instructions</span><span>
+</span><span id="line-179"></span><span>     </span><span class="hs-comment">-- because variations in the spill/fpu stack placement of arguments for</span><span>
+</span><span id="line-180"></span><span>     </span><span class="hs-comment">-- operations would change the precision and final result of what</span><span>
+</span><span id="line-181"></span><span>     </span><span class="hs-comment">-- would otherwise be the same expressions with respect to single or</span><span>
+</span><span id="line-182"></span><span>     </span><span class="hs-comment">-- double precision IEEE floating point computations.</span><span>
+</span><span id="line-183"></span><span>   </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ncgSseVersion :: Maybe SseVersion
+</span><a href="GHC.CmmToAsm.Config.html#ncgSseVersion"><span class="hs-identifier hs-var">ncgSseVersion</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-184"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681033093"><span class="annot"><span class="annottext">v :: Maybe SseVersion
+</span><a href="#local-6989586621681033093"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Maybe SseVersion
+</span><a href="GHC.Driver.Session.html#sseVersion"><span class="hs-identifier hs-var hs-var">sseVersion</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe SseVersion -&gt; Maybe SseVersion -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">SseVersion -&gt; Maybe SseVersion
+forall a. a -&gt; Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SseVersion
+</span><a href="../../ghc-boot/src/GHC.Platform.html#SSE2"><span class="hs-identifier hs-var">SSE2</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SseVersion -&gt; Maybe SseVersion
+forall a. a -&gt; Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SseVersion
+</span><a href="../../ghc-boot/src/GHC.Platform.html#SSE2"><span class="hs-identifier hs-var">SSE2</span></a></span><span>
+</span><span id="line-185"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="../../base/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span>                     </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DynFlags -&gt; Maybe SseVersion
+</span><a href="GHC.Driver.Session.html#sseVersion"><span class="hs-identifier hs-var hs-var">sseVersion</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span>
+</span><span id="line-186"></span><span>      </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#platformArch"><span class="hs-identifier hs-var">platformArch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DynFlags -&gt; Platform
+</span><a href="GHC.Driver.Session.html#targetPlatform"><span class="hs-identifier hs-var hs-var">targetPlatform</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033138"><span class="hs-identifier hs-var">dflags</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-187"></span><span>            </span><span class="annot"><span class="annottext">Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#ArchX86_64"><span class="hs-identifier hs-var">ArchX86_64</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe SseVersion
+</span><a href="#local-6989586621681033093"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-188"></span><span>            </span><span class="annot"><span class="annottext">Arch
+</span><a href="../../ghc-boot/src/GHC.Platform.html#ArchX86"><span class="hs-identifier hs-var">ArchX86</span></a></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe SseVersion
+</span><a href="#local-6989586621681033093"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-189"></span><span>            </span><span class="annot"><span class="annottext">Arch
+</span><span class="hs-identifier">_</span></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe SseVersion
+forall a. Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-190"></span><span>   </span><span class="hs-special">}</span><span>
+</span><span id="line-191"></span><span>
+</span><span id="line-192"></span><span>
+</span><span id="line-193"></span><span id="local-6989586621681033321"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#initNat"><span class="hs-identifier hs-type">initNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-type">NatM_State</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033321"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681033321"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM_State"><span class="hs-identifier hs-type">NatM_State</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-194"></span><span id="initNat"><span class="annot"><span class="annottext">initNat :: forall a. NatM_State -&gt; NatM a -&gt; (a, NatM_State)
+</span><a href="GHC.CmmToAsm.Monad.html#initNat"><span class="hs-identifier hs-var hs-var">initNat</span></a></span></span><span> </span><span id="local-6989586621681033090"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033090"><span class="hs-identifier hs-var">init_st</span></a></span></span><span> </span><span id="local-6989586621681033089"><span class="annot"><span class="annottext">NatM a
+</span><a href="#local-6989586621681033089"><span class="hs-identifier hs-var">m</span></a></span></span><span>
+</span><span id="line-195"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NatM a -&gt; NatM_State -&gt; (a, NatM_State)
+forall a. NatM a -&gt; NatM_State -&gt; (a, NatM_State)
+</span><a href="GHC.CmmToAsm.Monad.html#unNat"><span class="hs-identifier hs-var">unNat</span></a></span><span> </span><span class="annot"><span class="annottext">NatM a
+</span><a href="#local-6989586621681033089"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033090"><span class="hs-identifier hs-var">init_st</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">{</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681033088"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681033088"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621681033087"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033087"><span class="hs-identifier hs-var">st</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681033088"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033087"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-196"></span><span>
+</span><span id="line-197"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681033077"><span id="local-6989586621681033079"><span id="local-6989586621681033081"><span class="annot"><a href="../../base/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-type">Applicative</span></a></span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-198"></span><span>      </span><span id="local-6989586621681033075"><span class="annot"><span class="annottext">pure :: forall a. a -&gt; NatM a
+</span><a href="../../base/src/GHC.Base.html#pure"><span class="hs-identifier hs-var hs-var hs-var hs-var">pure</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; NatM a
+forall a. a -&gt; NatM a
+</span><a href="GHC.CmmToAsm.Monad.html#returnNat"><span class="hs-identifier hs-var">returnNat</span></a></span><span>
+</span><span id="line-199"></span><span>      </span><span id="local-6989586621681033072"><span class="annot"><span class="annottext">&lt;*&gt; :: forall a b. NatM (a -&gt; b) -&gt; NatM a -&gt; NatM b
+</span><a href="../../base/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var hs-var hs-var hs-var">(&lt;*&gt;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NatM (a -&gt; b) -&gt; NatM a -&gt; NatM b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m (a -&gt; b) -&gt; m a -&gt; m b
+</span><a href="../../base/src/GHC.Base.html#ap"><span class="hs-identifier hs-var">ap</span></a></span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681033065"><span id="local-6989586621681033067"><span class="annot"><a href="../../base/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-202"></span><span>  </span><span id="local-6989586621681033063"><span class="annot"><span class="annottext">&gt;&gt;= :: forall a b. NatM a -&gt; (a -&gt; NatM b) -&gt; NatM b
+</span><a href="../../base/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var hs-var hs-var hs-var">(&gt;&gt;=)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NatM a -&gt; (a -&gt; NatM b) -&gt; NatM b
+forall a b. NatM a -&gt; (a -&gt; NatM b) -&gt; NatM b
+</span><a href="GHC.CmmToAsm.Monad.html#thenNat"><span class="hs-identifier hs-var">thenNat</span></a></span><span>
+</span><span id="line-203"></span><span>
+</span><span id="line-204"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681033056"><span class="annot"><a href="GHC.Types.Unique.Supply.html#MonadUnique"><span class="hs-identifier hs-type">MonadUnique</span></a></span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-205"></span><span>  </span><span id="local-6989586621681033054"><span class="annot"><span class="annottext">getUniqueSupplyM :: NatM UniqSupply
+</span><a href="GHC.Types.Unique.Supply.html#getUniqueSupplyM"><span class="hs-identifier hs-var hs-var hs-var hs-var">getUniqueSupplyM</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (UniqSupply, NatM_State)) -&gt; NatM UniqSupply
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (UniqSupply, NatM_State)) -&gt; NatM UniqSupply)
+-&gt; (NatM_State -&gt; (UniqSupply, NatM_State)) -&gt; NatM UniqSupply
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681033052"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033052"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-206"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; (UniqSupply, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#splitUniqSupply"><span class="hs-identifier hs-var">splitUniqSupply</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; UniqSupply
+</span><a href="GHC.CmmToAsm.Monad.html#natm_us"><span class="hs-identifier hs-var hs-var">natm_us</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033052"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-207"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621681033050"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033050"><span class="hs-identifier hs-var">us1</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681033049"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033049"><span class="hs-identifier hs-var">us2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033050"><span class="hs-identifier hs-var">us1</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033052"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><span class="annottext">natm_us :: UniqSupply
+</span><a href="GHC.CmmToAsm.Monad.html#natm_us"><span class="hs-identifier hs-var">natm_us</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033049"><span class="hs-identifier hs-var">us2</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-208"></span><span>
+</span><span id="line-209"></span><span>  </span><span id="local-6989586621681033048"><span class="annot"><span class="annottext">getUniqueM :: NatM Unique
+</span><a href="GHC.Types.Unique.Supply.html#getUniqueM"><span class="hs-identifier hs-var hs-var hs-var hs-var">getUniqueM</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (Unique, NatM_State)) -&gt; NatM Unique
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (Unique, NatM_State)) -&gt; NatM Unique)
+-&gt; (NatM_State -&gt; (Unique, NatM_State)) -&gt; NatM Unique
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681033046"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033046"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-210"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; (Unique, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#takeUniqFromSupply"><span class="hs-identifier hs-var">takeUniqFromSupply</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; UniqSupply
+</span><a href="GHC.CmmToAsm.Monad.html#natm_us"><span class="hs-identifier hs-var hs-var">natm_us</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033046"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-211"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621681033044"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681033044"><span class="hs-identifier hs-var">uniq</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681033043"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033043"><span class="hs-identifier hs-var">us'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681033044"><span class="hs-identifier hs-var">uniq</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033046"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><span class="annottext">natm_us :: UniqSupply
+</span><a href="GHC.CmmToAsm.Monad.html#natm_us"><span class="hs-identifier hs-var">natm_us</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033043"><span class="hs-identifier hs-var">us'</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-212"></span><span>
+</span><span id="line-213"></span><span id="local-6989586621681033041"><span id="local-6989586621681033042"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#thenNat"><span class="hs-identifier hs-type">thenNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033042"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681033042"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033041"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033041"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-214"></span><span id="thenNat"><span class="annot"><span class="annottext">thenNat :: forall a b. NatM a -&gt; (a -&gt; NatM b) -&gt; NatM b
+</span><a href="GHC.CmmToAsm.Monad.html#thenNat"><span class="hs-identifier hs-var hs-var">thenNat</span></a></span></span><span> </span><span id="local-6989586621681033040"><span class="annot"><span class="annottext">NatM a
+</span><a href="#local-6989586621681033040"><span class="hs-identifier hs-var">expr</span></a></span></span><span> </span><span id="local-6989586621681033039"><span class="annot"><span class="annottext">a -&gt; NatM b
+</span><a href="#local-6989586621681033039"><span class="hs-identifier hs-var">cont</span></a></span></span><span>
+</span><span id="line-215"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (b, NatM_State)) -&gt; NatM b
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (b, NatM_State)) -&gt; NatM b)
+-&gt; (NatM_State -&gt; (b, NatM_State)) -&gt; NatM b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681033038"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033038"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NatM a -&gt; NatM_State -&gt; (a, NatM_State)
+forall a. NatM a -&gt; NatM_State -&gt; (a, NatM_State)
+</span><a href="GHC.CmmToAsm.Monad.html#unNat"><span class="hs-identifier hs-var">unNat</span></a></span><span> </span><span class="annot"><span class="annottext">NatM a
+</span><a href="#local-6989586621681033040"><span class="hs-identifier hs-var">expr</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033038"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-216"></span><span>                        </span><span class="hs-special">(</span><span id="local-6989586621681033037"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681033037"><span class="hs-identifier hs-var">result</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681033036"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033036"><span class="hs-identifier hs-var">st'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NatM b -&gt; NatM_State -&gt; (b, NatM_State)
+forall a. NatM a -&gt; NatM_State -&gt; (a, NatM_State)
+</span><a href="GHC.CmmToAsm.Monad.html#unNat"><span class="hs-identifier hs-var">unNat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; NatM b
+</span><a href="#local-6989586621681033039"><span class="hs-identifier hs-var">cont</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681033037"><span class="hs-identifier hs-var">result</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033036"><span class="hs-identifier hs-var">st'</span></a></span><span>
+</span><span id="line-217"></span><span>
+</span><span id="line-218"></span><span id="local-6989586621681033035"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#returnNat"><span class="hs-identifier hs-type">returnNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681033035"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033035"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-219"></span><span id="returnNat"><span class="annot"><span class="annottext">returnNat :: forall a. a -&gt; NatM a
+</span><a href="GHC.CmmToAsm.Monad.html#returnNat"><span class="hs-identifier hs-var hs-var">returnNat</span></a></span></span><span> </span><span id="local-6989586621681033034"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681033034"><span class="hs-identifier hs-var">result</span></a></span></span><span>
+</span><span id="line-220"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (a, NatM_State)) -&gt; NatM a
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (a, NatM_State)) -&gt; NatM a)
+-&gt; (NatM_State -&gt; (a, NatM_State)) -&gt; NatM a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681033033"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033033"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681033034"><span class="hs-identifier hs-var">result</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033033"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-221"></span><span>
+</span><span id="line-222"></span><span id="local-6989586621681033286"><span id="local-6989586621681033287"><span id="local-6989586621681033288"><span class="annot"><a href="GHC.CmmToAsm.Monad.html#mapAccumLNat"><span class="hs-identifier hs-type">mapAccumLNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681033288"><span class="hs-identifier hs-type">acc</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681033287"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681033288"><span class="hs-identifier hs-type">acc</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621681033286"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-223"></span><span>                </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681033288"><span class="hs-identifier hs-type">acc</span></a></span><span>
+</span><span id="line-224"></span><span>                </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621681033287"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-225"></span><span>                </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681033288"><span class="hs-identifier hs-type">acc</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621681033286"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-226"></span><span>
+</span><span id="line-227"></span><span id="mapAccumLNat"><span class="annot"><span class="annottext">mapAccumLNat :: forall acc x y.
+(acc -&gt; x -&gt; NatM (acc, y)) -&gt; acc -&gt; [x] -&gt; NatM (acc, [y])
+</span><a href="GHC.CmmToAsm.Monad.html#mapAccumLNat"><span class="hs-identifier hs-var hs-var">mapAccumLNat</span></a></span></span><span> </span><span class="annot"><span class="annottext">acc -&gt; x -&gt; NatM (acc, y)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621681033028"><span class="annot"><span class="annottext">acc
+</span><a href="#local-6989586621681033028"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-228"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(acc, [y]) -&gt; NatM (acc, [y])
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">acc
+</span><a href="#local-6989586621681033028"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-229"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#mapAccumLNat"><span class="hs-identifier hs-var">mapAccumLNat</span></a></span><span> </span><span id="local-6989586621681033027"><span class="annot"><span class="annottext">acc -&gt; x -&gt; NatM (acc, y)
+</span><a href="#local-6989586621681033027"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621681033026"><span class="annot"><span class="annottext">acc
+</span><a href="#local-6989586621681033026"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681033025"><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621681033025"><span class="hs-identifier hs-var">x</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621681033024"><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621681033024"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-230"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681033023"><span class="annot"><span class="annottext">acc
+</span><a href="#local-6989586621681033023"><span class="hs-identifier hs-var">b__2</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681033022"><span class="annot"><span class="annottext">y
+</span><a href="#local-6989586621681033022"><span class="hs-identifier hs-var">x__2</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">acc -&gt; x -&gt; NatM (acc, y)
+</span><a href="#local-6989586621681033027"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">acc
+</span><a href="#local-6989586621681033026"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621681033025"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-231"></span><span>       </span><span class="hs-special">(</span><span id="local-6989586621681033021"><span class="annot"><span class="annottext">acc
+</span><a href="#local-6989586621681033021"><span class="hs-identifier hs-var">b__3</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681033020"><span class="annot"><span class="annottext">[y]
+</span><a href="#local-6989586621681033020"><span class="hs-identifier hs-var">xs__2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(acc -&gt; x -&gt; NatM (acc, y)) -&gt; acc -&gt; [x] -&gt; NatM (acc, [y])
+forall acc x y.
+(acc -&gt; x -&gt; NatM (acc, y)) -&gt; acc -&gt; [x] -&gt; NatM (acc, [y])
+</span><a href="GHC.CmmToAsm.Monad.html#mapAccumLNat"><span class="hs-identifier hs-var">mapAccumLNat</span></a></span><span> </span><span class="annot"><span class="annottext">acc -&gt; x -&gt; NatM (acc, y)
+</span><a href="#local-6989586621681033027"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">acc
+</span><a href="#local-6989586621681033023"><span class="hs-identifier hs-var">b__2</span></a></span><span> </span><span class="annot"><span class="annottext">[x]
+</span><a href="#local-6989586621681033024"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-232"></span><span>       </span><span class="annot"><span class="annottext">(acc, [y]) -&gt; NatM (acc, [y])
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">acc
+</span><a href="#local-6989586621681033021"><span class="hs-identifier hs-var">b__3</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">y
+</span><a href="#local-6989586621681033022"><span class="hs-identifier hs-var">x__2</span></a></span><span class="annot"><span class="annottext">y -&gt; [y] -&gt; [y]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span class="annot"><span class="annottext">[y]
+</span><a href="#local-6989586621681033020"><span class="hs-identifier hs-var">xs__2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>
+</span><span id="line-234"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getUniqueNat"><span class="hs-identifier hs-type">getUniqueNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="GHC.Types.Unique.html#Unique"><span class="hs-identifier hs-type">Unique</span></a></span><span>
+</span><span id="line-235"></span><span id="getUniqueNat"><span class="annot"><span class="annottext">getUniqueNat :: NatM Unique
+</span><a href="GHC.CmmToAsm.Monad.html#getUniqueNat"><span class="hs-identifier hs-var hs-var">getUniqueNat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (Unique, NatM_State)) -&gt; NatM Unique
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (Unique, NatM_State)) -&gt; NatM Unique)
+-&gt; (NatM_State -&gt; (Unique, NatM_State)) -&gt; NatM Unique
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621681033019"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033019"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-236"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">UniqSupply -&gt; (Unique, UniqSupply)
+</span><a href="GHC.Types.Unique.Supply.html#takeUniqFromSupply"><span class="hs-identifier hs-var">takeUniqFromSupply</span></a></span><span> </span><span class="annot"><span class="annottext">(UniqSupply -&gt; (Unique, UniqSupply))
+-&gt; UniqSupply -&gt; (Unique, UniqSupply)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State -&gt; UniqSupply
+</span><a href="GHC.CmmToAsm.Monad.html#natm_us"><span class="hs-identifier hs-var hs-var">natm_us</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033019"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-237"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681033018"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681033018"><span class="hs-identifier hs-var">uniq</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681033017"><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033017"><span class="hs-identifier hs-var">us'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681033018"><span class="hs-identifier hs-var">uniq</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033019"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><span class="annottext">natm_us :: UniqSupply
+</span><a href="GHC.CmmToAsm.Monad.html#natm_us"><span class="hs-identifier hs-var">natm_us</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UniqSupply
+</span><a href="#local-6989586621681033017"><span class="hs-identifier hs-var">us'</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-238"></span><span>
+</span><span id="line-239"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="GHC.Driver.Session.html#HasDynFlags"><span class="hs-identifier hs-type">HasDynFlags</span></a></span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-240"></span><span>    </span><span id="local-6989586621681033014"><span class="annot"><span class="annottext">getDynFlags :: NatM DynFlags
+</span><a href="#local-6989586621681033014"><span class="hs-identifier hs-var hs-var hs-var hs-var">getDynFlags</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (DynFlags, NatM_State)) -&gt; NatM DynFlags
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (DynFlags, NatM_State)) -&gt; NatM DynFlags)
+-&gt; (NatM_State -&gt; (DynFlags, NatM_State)) -&gt; NatM DynFlags
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621681033013"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033013"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; DynFlags
+</span><a href="GHC.CmmToAsm.Monad.html#natm_dflags"><span class="hs-identifier hs-var hs-var">natm_dflags</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033013"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033013"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-241"></span><span>
+</span><span id="line-242"></span><span>
+</span><span id="line-243"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getDeltaNat"><span class="hs-identifier hs-type">getDeltaNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-244"></span><span id="getDeltaNat"><span class="annot"><span class="annottext">getDeltaNat :: NatM Int
+</span><a href="GHC.CmmToAsm.Monad.html#getDeltaNat"><span class="hs-identifier hs-var hs-var">getDeltaNat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (Int, NatM_State)) -&gt; NatM Int
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (Int, NatM_State)) -&gt; NatM Int)
+-&gt; (NatM_State -&gt; (Int, NatM_State)) -&gt; NatM Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621681033012"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033012"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; Int
+</span><a href="GHC.CmmToAsm.Monad.html#natm_delta"><span class="hs-identifier hs-var hs-var">natm_delta</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033012"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033012"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-245"></span><span>
+</span><span id="line-246"></span><span>
+</span><span id="line-247"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#setDeltaNat"><span class="hs-identifier hs-type">setDeltaNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-248"></span><span id="setDeltaNat"><span class="annot"><span class="annottext">setDeltaNat :: Int -&gt; NatM ()
+</span><a href="GHC.CmmToAsm.Monad.html#setDeltaNat"><span class="hs-identifier hs-var hs-var">setDeltaNat</span></a></span></span><span> </span><span id="local-6989586621681033011"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681033011"><span class="hs-identifier hs-var">delta</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; ((), NatM_State)) -&gt; NatM ()
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; ((), NatM_State)) -&gt; NatM ())
+-&gt; (NatM_State -&gt; ((), NatM_State)) -&gt; NatM ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621681033010"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033010"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033010"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><span class="annottext">natm_delta :: Int
+</span><a href="GHC.CmmToAsm.Monad.html#natm_delta"><span class="hs-identifier hs-var">natm_delta</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681033011"><span class="hs-identifier hs-var">delta</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-249"></span><span>
+</span><span id="line-250"></span><span>
+</span><span id="line-251"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getThisModuleNat"><span class="hs-identifier hs-type">getThisModuleNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="GHC.Unit.Types.html#Module"><span class="hs-identifier hs-type">Module</span></a></span><span>
+</span><span id="line-252"></span><span id="getThisModuleNat"><span class="annot"><span class="annottext">getThisModuleNat :: NatM Module
+</span><a href="GHC.CmmToAsm.Monad.html#getThisModuleNat"><span class="hs-identifier hs-var hs-var">getThisModuleNat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (Module, NatM_State)) -&gt; NatM Module
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (Module, NatM_State)) -&gt; NatM Module)
+-&gt; (NatM_State -&gt; (Module, NatM_State)) -&gt; NatM Module
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621681033009"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033009"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; Module
+</span><a href="GHC.CmmToAsm.Monad.html#natm_this_module"><span class="hs-identifier hs-var hs-var">natm_this_module</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033009"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033009"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-253"></span><span>
+</span><span id="line-254"></span><span>
+</span><span id="line-255"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#addImportNat"><span class="hs-identifier hs-type">addImportNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Cmm.CLabel.html#CLabel"><span class="hs-identifier hs-type">CLabel</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-256"></span><span id="addImportNat"><span class="annot"><span class="annottext">addImportNat :: CLabel -&gt; NatM ()
+</span><a href="GHC.CmmToAsm.Monad.html#addImportNat"><span class="hs-identifier hs-var hs-var">addImportNat</span></a></span></span><span> </span><span id="local-6989586621681033008"><span class="annot"><span class="annottext">CLabel
+</span><a href="#local-6989586621681033008"><span class="hs-identifier hs-var">imp</span></a></span></span><span>
+</span><span id="line-257"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; ((), NatM_State)) -&gt; NatM ()
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; ((), NatM_State)) -&gt; NatM ())
+-&gt; (NatM_State -&gt; ((), NatM_State)) -&gt; NatM ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621681033007"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033007"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033007"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><span class="annottext">natm_imports :: [CLabel]
+</span><a href="GHC.CmmToAsm.Monad.html#natm_imports"><span class="hs-identifier hs-var">natm_imports</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CLabel
+</span><a href="#local-6989586621681033008"><span class="hs-identifier hs-var">imp</span></a></span><span> </span><span class="annot"><span class="annottext">CLabel -&gt; [CLabel] -&gt; [CLabel]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">NatM_State -&gt; [CLabel]
+</span><a href="GHC.CmmToAsm.Monad.html#natm_imports"><span class="hs-identifier hs-var hs-var">natm_imports</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033007"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-258"></span><span>
+</span><span id="line-259"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#updateCfgNat"><span class="hs-identifier hs-type">updateCfgNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.CmmToAsm.CFG.html#CFG"><span class="hs-identifier hs-type">CFG</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.CFG.html#CFG"><span class="hs-identifier hs-type">CFG</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-260"></span><span id="updateCfgNat"><span class="annot"><span class="annottext">updateCfgNat :: (CFG -&gt; CFG) -&gt; NatM ()
+</span><a href="GHC.CmmToAsm.Monad.html#updateCfgNat"><span class="hs-identifier hs-var hs-var">updateCfgNat</span></a></span></span><span> </span><span id="local-6989586621681033006"><span class="annot"><span class="annottext">CFG -&gt; CFG
+</span><a href="#local-6989586621681033006"><span class="hs-identifier hs-var">f</span></a></span></span><span>
+</span><span id="line-261"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; ((), NatM_State)) -&gt; NatM ()
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; ((), NatM_State)) -&gt; NatM ())
+-&gt; (NatM_State -&gt; ((), NatM_State)) -&gt; NatM ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621681033005"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033005"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681033004"><span class="annot"><span class="annottext">cfg' :: CFG
+</span><a href="#local-6989586621681033004"><span class="hs-identifier hs-var hs-var">cfg'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CFG -&gt; CFG
+</span><a href="#local-6989586621681033006"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; CFG
+</span><a href="GHC.CmmToAsm.Monad.html#natm_cfg"><span class="hs-identifier hs-var hs-var">natm_cfg</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033005"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-262"></span><span>                         </span><span class="hs-keyword">in</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681033005"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">natm_cfg :: CFG
+</span><a href="GHC.CmmToAsm.Monad.html#natm_cfg"><span class="hs-identifier hs-var">natm_cfg</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CFG
+</span><a href="#local-6989586621681033004"><span class="hs-identifier hs-var">cfg'</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-263"></span><span>
+</span><span id="line-264"></span><span class="hs-comment">-- | Record that we added a block between `from` and `old`.</span><span>
+</span><span id="line-265"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#addNodeBetweenNat"><span class="hs-identifier hs-type">addNodeBetweenNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-266"></span><span id="addNodeBetweenNat"><span class="annot"><span class="annottext">addNodeBetweenNat :: BlockId -&gt; BlockId -&gt; BlockId -&gt; NatM ()
+</span><a href="GHC.CmmToAsm.Monad.html#addNodeBetweenNat"><span class="hs-identifier hs-var hs-var">addNodeBetweenNat</span></a></span></span><span> </span><span id="local-6989586621681033003"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681033003"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621681033002"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681033002"><span class="hs-identifier hs-var">between</span></a></span></span><span> </span><span id="local-6989586621681033001"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681033001"><span class="hs-identifier hs-var">to</span></a></span></span><span>
+</span><span id="line-267"></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>   </span><span id="local-6989586621681033000"><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033000"><span class="hs-identifier hs-var">df</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NatM DynFlags
+forall (m :: * -&gt; *). HasDynFlags m =&gt; m DynFlags
+</span><a href="GHC.Driver.Session.html#getDynFlags"><span class="hs-identifier hs-var">getDynFlags</span></a></span><span>
+</span><span id="line-268"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681032996"><span class="annot"><span class="annottext">jmpWeight :: EdgeWeight
+</span><a href="#local-6989586621681032996"><span class="hs-identifier hs-var hs-var">jmpWeight</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; EdgeWeight
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; EdgeWeight) -&gt; (DynFlags -&gt; Int) -&gt; DynFlags -&gt; EdgeWeight
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">CfgWeights -&gt; Int
+</span><a href="GHC.Driver.Session.html#uncondWeight"><span class="hs-identifier hs-var hs-var">uncondWeight</span></a></span><span> </span><span class="annot"><span class="annottext">(CfgWeights -&gt; Int) -&gt; (DynFlags -&gt; CfgWeights) -&gt; DynFlags -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span>
+</span><span id="line-269"></span><span>                        </span><span class="annot"><span class="annottext">DynFlags -&gt; CfgWeights
+</span><a href="GHC.Driver.Session.html#cfgWeightInfo"><span class="hs-identifier hs-var hs-var">cfgWeightInfo</span></a></span><span> </span><span class="annot"><span class="annottext">(DynFlags -&gt; EdgeWeight) -&gt; DynFlags -&gt; EdgeWeight
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681033000"><span class="hs-identifier hs-var">df</span></a></span><span>
+</span><span id="line-270"></span><span>        </span><span class="annot"><span class="annottext">(CFG -&gt; CFG) -&gt; NatM ()
+</span><a href="GHC.CmmToAsm.Monad.html#updateCfgNat"><span class="hs-identifier hs-var">updateCfgNat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EdgeWeight -&gt; BlockId -&gt; BlockId -&gt; BlockId -&gt; CFG -&gt; CFG
+</span><a href="#local-6989586621681032992"><span class="hs-identifier hs-var">updateCfg</span></a></span><span> </span><span class="annot"><span class="annottext">EdgeWeight
+</span><a href="#local-6989586621681032996"><span class="hs-identifier hs-var">jmpWeight</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681033003"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681033002"><span class="hs-identifier hs-var">between</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681033001"><span class="hs-identifier hs-var">to</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-271"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-272"></span><span>    </span><span class="hs-comment">-- When transforming A -&gt; B to A -&gt; A' -&gt; B</span><span>
+</span><span id="line-273"></span><span>    </span><span class="hs-comment">-- A -&gt; A' keeps the old edge info while</span><span>
+</span><span id="line-274"></span><span>    </span><span class="hs-comment">-- A' -&gt; B gets the info for an unconditional</span><span>
+</span><span id="line-275"></span><span>    </span><span class="hs-comment">-- jump.</span><span>
+</span><span id="line-276"></span><span>    </span><span id="local-6989586621681032992"><span class="annot"><span class="annottext">updateCfg :: EdgeWeight -&gt; BlockId -&gt; BlockId -&gt; BlockId -&gt; CFG -&gt; CFG
+</span><a href="#local-6989586621681032992"><span class="hs-identifier hs-var hs-var">updateCfg</span></a></span></span><span> </span><span id="local-6989586621681032984"><span class="annot"><span class="annottext">EdgeWeight
+</span><a href="#local-6989586621681032984"><span class="hs-identifier hs-var">weight</span></a></span></span><span> </span><span id="local-6989586621681032983"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032983"><span class="hs-identifier hs-var">from</span></a></span></span><span> </span><span id="local-6989586621681032982"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032982"><span class="hs-identifier hs-var">between</span></a></span></span><span> </span><span id="local-6989586621681032981"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032981"><span class="hs-identifier hs-var">old</span></a></span></span><span> </span><span id="local-6989586621681032980"><span class="annot"><span class="annottext">CFG
+</span><a href="#local-6989586621681032980"><span class="hs-identifier hs-var">m</span></a></span></span><span>
+</span><span id="line-277"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681032979"><span class="annot"><span class="annottext">EdgeInfo
+</span><a href="#local-6989586621681032979"><span class="hs-identifier hs-var">info</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">BlockId -&gt; BlockId -&gt; CFG -&gt; Maybe EdgeInfo
+</span><a href="GHC.CmmToAsm.CFG.html#getEdgeInfo"><span class="hs-identifier hs-var">getEdgeInfo</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032983"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032981"><span class="hs-identifier hs-var">old</span></a></span><span> </span><span class="annot"><span class="annottext">CFG
+</span><a href="#local-6989586621681032980"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-278"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockId -&gt; BlockId -&gt; EdgeInfo -&gt; CFG -&gt; CFG
+</span><a href="GHC.CmmToAsm.CFG.html#addEdge"><span class="hs-identifier hs-var">addEdge</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032983"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032982"><span class="hs-identifier hs-var">between</span></a></span><span> </span><span class="annot"><span class="annottext">EdgeInfo
+</span><a href="#local-6989586621681032979"><span class="hs-identifier hs-var">info</span></a></span><span> </span><span class="annot"><span class="annottext">(CFG -&gt; CFG) -&gt; (CFG -&gt; CFG) -&gt; CFG -&gt; CFG
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span>
+</span><span id="line-279"></span><span>          </span><span class="annot"><span class="annottext">BlockId -&gt; BlockId -&gt; EdgeWeight -&gt; CFG -&gt; CFG
+</span><a href="GHC.CmmToAsm.CFG.html#addWeightEdge"><span class="hs-identifier hs-var">addWeightEdge</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032982"><span class="hs-identifier hs-var">between</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032981"><span class="hs-identifier hs-var">old</span></a></span><span> </span><span class="annot"><span class="annottext">EdgeWeight
+</span><a href="#local-6989586621681032984"><span class="hs-identifier hs-var">weight</span></a></span><span> </span><span class="annot"><span class="annottext">(CFG -&gt; CFG) -&gt; (CFG -&gt; CFG) -&gt; CFG -&gt; CFG
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="../../base/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span>
+</span><span id="line-280"></span><span>          </span><span class="annot"><span class="annottext">BlockId -&gt; BlockId -&gt; CFG -&gt; CFG
+</span><a href="GHC.CmmToAsm.CFG.html#delEdge"><span class="hs-identifier hs-var">delEdge</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032983"><span class="hs-identifier hs-var">from</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032981"><span class="hs-identifier hs-var">old</span></a></span><span> </span><span class="annot"><span class="annottext">(CFG -&gt; CFG) -&gt; CFG -&gt; CFG
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">CFG
+</span><a href="#local-6989586621681032980"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-281"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="../../base/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span>
+</span><span id="line-282"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; SDoc -&gt; CFG
+forall a. HasCallStack =&gt; String -&gt; SDoc -&gt; a
+</span><a href="GHC.Utils.Outputable.html#pprPanic"><span class="hs-identifier hs-var">pprPanic</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Failed to update cfg: Untracked edge&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockId, BlockId) -&gt; SDoc
+forall a. Outputable a =&gt; a -&gt; SDoc
+</span><a href="GHC.Utils.Outputable.html#ppr"><span class="hs-identifier hs-var">ppr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032983"><span class="hs-identifier hs-var">from</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681033001"><span class="hs-identifier hs-var">to</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-283"></span><span>
+</span><span id="line-284"></span><span>
+</span><span id="line-285"></span><span class="hs-comment">-- | Place `succ` after `block` and change any edges</span><span>
+</span><span id="line-286"></span><span class="hs-comment">--   block -&gt; X to `succ` -&gt; X</span><span>
+</span><span id="line-287"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#addImmediateSuccessorNat"><span class="hs-identifier hs-type">addImmediateSuccessorNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-288"></span><span id="addImmediateSuccessorNat"><span class="annot"><span class="annottext">addImmediateSuccessorNat :: BlockId -&gt; BlockId -&gt; NatM ()
+</span><a href="GHC.CmmToAsm.Monad.html#addImmediateSuccessorNat"><span class="hs-identifier hs-var hs-var">addImmediateSuccessorNat</span></a></span></span><span> </span><span id="local-6989586621681032974"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032974"><span class="hs-identifier hs-var">block</span></a></span></span><span> </span><span id="local-6989586621681032973"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032973"><span class="hs-identifier hs-var">succ</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-289"></span><span>   </span><span id="local-6989586621681032972"><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681032972"><span class="hs-identifier hs-var">dflags</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NatM DynFlags
+forall (m :: * -&gt; *). HasDynFlags m =&gt; m DynFlags
+</span><a href="GHC.Driver.Session.html#getDynFlags"><span class="hs-identifier hs-var">getDynFlags</span></a></span><span>
+</span><span id="line-290"></span><span>   </span><span class="annot"><span class="annottext">(CFG -&gt; CFG) -&gt; NatM ()
+</span><a href="GHC.CmmToAsm.Monad.html#updateCfgNat"><span class="hs-identifier hs-var">updateCfgNat</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DynFlags -&gt; BlockId -&gt; BlockId -&gt; CFG -&gt; CFG
+</span><a href="GHC.CmmToAsm.CFG.html#addImmediateSuccessor"><span class="hs-identifier hs-var">addImmediateSuccessor</span></a></span><span> </span><span class="annot"><span class="annottext">DynFlags
+</span><a href="#local-6989586621681032972"><span class="hs-identifier hs-var">dflags</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032974"><span class="hs-identifier hs-var">block</span></a></span><span> </span><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032973"><span class="hs-identifier hs-var">succ</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-291"></span><span>
+</span><span id="line-292"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getBlockIdNat"><span class="hs-identifier hs-type">getBlockIdNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="GHC.Cmm.BlockId.html#BlockId"><span class="hs-identifier hs-type">BlockId</span></a></span><span>
+</span><span id="line-293"></span><span id="getBlockIdNat"><span class="annot"><span class="annottext">getBlockIdNat :: NatM BlockId
+</span><a href="GHC.CmmToAsm.Monad.html#getBlockIdNat"><span class="hs-identifier hs-var hs-var">getBlockIdNat</span></a></span></span><span>
+</span><span id="line-294"></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>   </span><span id="local-6989586621681032970"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681032970"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NatM Unique
+</span><a href="GHC.CmmToAsm.Monad.html#getUniqueNat"><span class="hs-identifier hs-var">getUniqueNat</span></a></span><span>
+</span><span id="line-295"></span><span>        </span><span class="annot"><span class="annottext">BlockId -&gt; NatM BlockId
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Unique -&gt; BlockId
+</span><a href="GHC.Cmm.BlockId.html#mkBlockId"><span class="hs-identifier hs-var">mkBlockId</span></a></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681032970"><span class="hs-identifier hs-var">u</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-296"></span><span>
+</span><span id="line-297"></span><span>
+</span><span id="line-298"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getNewLabelNat"><span class="hs-identifier hs-type">getNewLabelNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="GHC.Cmm.CLabel.html#CLabel"><span class="hs-identifier hs-type">CLabel</span></a></span><span>
+</span><span id="line-299"></span><span id="getNewLabelNat"><span class="annot"><span class="annottext">getNewLabelNat :: NatM CLabel
+</span><a href="GHC.CmmToAsm.Monad.html#getNewLabelNat"><span class="hs-identifier hs-var hs-var">getNewLabelNat</span></a></span></span><span>
+</span><span id="line-300"></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockId -&gt; CLabel
+</span><a href="GHC.Cmm.BlockId.html#blockLbl"><span class="hs-identifier hs-var">blockLbl</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockId -&gt; CLabel) -&gt; NatM BlockId -&gt; NatM CLabel
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="../../base/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">NatM BlockId
+</span><a href="GHC.CmmToAsm.Monad.html#getBlockIdNat"><span class="hs-identifier hs-var">getBlockIdNat</span></a></span><span>
+</span><span id="line-301"></span><span>
+</span><span id="line-302"></span><span>
+</span><span id="line-303"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getNewRegNat"><span class="hs-identifier hs-type">getNewRegNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="GHC.Platform.Reg.html#Reg"><span class="hs-identifier hs-type">Reg</span></a></span><span>
+</span><span id="line-304"></span><span id="getNewRegNat"><span class="annot"><span class="annottext">getNewRegNat :: Format -&gt; NatM Reg
+</span><a href="GHC.CmmToAsm.Monad.html#getNewRegNat"><span class="hs-identifier hs-var hs-var">getNewRegNat</span></a></span></span><span> </span><span id="local-6989586621681032966"><span class="annot"><span class="annottext">Format
+</span><a href="#local-6989586621681032966"><span class="hs-identifier hs-var">rep</span></a></span></span><span>
+</span><span id="line-305"></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621681032965"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681032965"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NatM Unique
+</span><a href="GHC.CmmToAsm.Monad.html#getUniqueNat"><span class="hs-identifier hs-var">getUniqueNat</span></a></span><span>
+</span><span id="line-306"></span><span>      </span><span id="local-6989586621681032964"><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621681032964"><span class="hs-identifier hs-var">platform</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NatM Platform
+</span><a href="GHC.CmmToAsm.Monad.html#getPlatform"><span class="hs-identifier hs-var">getPlatform</span></a></span><span>
+</span><span id="line-307"></span><span>      </span><span class="annot"><span class="annottext">Reg -&gt; NatM Reg
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VirtualReg -&gt; Reg
+</span><a href="GHC.Platform.Reg.html#RegVirtual"><span class="hs-identifier hs-var">RegVirtual</span></a></span><span> </span><span class="annot"><span class="annottext">(VirtualReg -&gt; Reg) -&gt; VirtualReg -&gt; Reg
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Unique -&gt; Format -&gt; VirtualReg
+</span><a href="GHC.CmmToAsm.Reg.Target.html#targetMkVirtualReg"><span class="hs-identifier hs-var">targetMkVirtualReg</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621681032964"><span class="hs-identifier hs-var">platform</span></a></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681032965"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">Format
+</span><a href="#local-6989586621681032966"><span class="hs-identifier hs-var">rep</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-308"></span><span>
+</span><span id="line-309"></span><span>
+</span><span id="line-310"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getNewRegPairNat"><span class="hs-identifier hs-type">getNewRegPairNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="GHC.Platform.Reg.html#Reg"><span class="hs-identifier hs-type">Reg</span></a></span><span class="hs-special">,</span><span class="annot"><a href="GHC.Platform.Reg.html#Reg"><span class="hs-identifier hs-type">Reg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-311"></span><span id="getNewRegPairNat"><span class="annot"><span class="annottext">getNewRegPairNat :: Format -&gt; NatM (Reg, Reg)
+</span><a href="GHC.CmmToAsm.Monad.html#getNewRegPairNat"><span class="hs-identifier hs-var hs-var">getNewRegPairNat</span></a></span></span><span> </span><span id="local-6989586621681032961"><span class="annot"><span class="annottext">Format
+</span><a href="#local-6989586621681032961"><span class="hs-identifier hs-var">rep</span></a></span></span><span>
+</span><span id="line-312"></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span> </span><span id="local-6989586621681032960"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681032960"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NatM Unique
+</span><a href="GHC.CmmToAsm.Monad.html#getUniqueNat"><span class="hs-identifier hs-var">getUniqueNat</span></a></span><span>
+</span><span id="line-313"></span><span>      </span><span id="local-6989586621681032959"><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621681032959"><span class="hs-identifier hs-var">platform</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NatM Platform
+</span><a href="GHC.CmmToAsm.Monad.html#getPlatform"><span class="hs-identifier hs-var">getPlatform</span></a></span><span>
+</span><span id="line-314"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681032958"><span class="annot"><span class="annottext">vLo :: VirtualReg
+</span><a href="#local-6989586621681032958"><span class="hs-identifier hs-var hs-var">vLo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Unique -&gt; Format -&gt; VirtualReg
+</span><a href="GHC.CmmToAsm.Reg.Target.html#targetMkVirtualReg"><span class="hs-identifier hs-var">targetMkVirtualReg</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621681032959"><span class="hs-identifier hs-var">platform</span></a></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681032960"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">Format
+</span><a href="#local-6989586621681032961"><span class="hs-identifier hs-var">rep</span></a></span><span>
+</span><span id="line-315"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681032957"><span class="annot"><span class="annottext">lo :: Reg
+</span><a href="#local-6989586621681032957"><span class="hs-identifier hs-var hs-var">lo</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VirtualReg -&gt; Reg
+</span><a href="GHC.Platform.Reg.html#RegVirtual"><span class="hs-identifier hs-var">RegVirtual</span></a></span><span> </span><span class="annot"><span class="annottext">(VirtualReg -&gt; Reg) -&gt; VirtualReg -&gt; Reg
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Platform -&gt; Unique -&gt; Format -&gt; VirtualReg
+</span><a href="GHC.CmmToAsm.Reg.Target.html#targetMkVirtualReg"><span class="hs-identifier hs-var">targetMkVirtualReg</span></a></span><span> </span><span class="annot"><span class="annottext">Platform
+</span><a href="#local-6989586621681032959"><span class="hs-identifier hs-var">platform</span></a></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621681032960"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">Format
+</span><a href="#local-6989586621681032961"><span class="hs-identifier hs-var">rep</span></a></span><span>
+</span><span id="line-316"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681032956"><span class="annot"><span class="annottext">hi :: Reg
+</span><a href="#local-6989586621681032956"><span class="hs-identifier hs-var hs-var">hi</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VirtualReg -&gt; Reg
+</span><a href="GHC.Platform.Reg.html#RegVirtual"><span class="hs-identifier hs-var">RegVirtual</span></a></span><span> </span><span class="annot"><span class="annottext">(VirtualReg -&gt; Reg) -&gt; VirtualReg -&gt; Reg
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">VirtualReg -&gt; VirtualReg
+</span><a href="GHC.Platform.Reg.html#getHiVirtualRegFromLo"><span class="hs-identifier hs-var">getHiVirtualRegFromLo</span></a></span><span> </span><span class="annot"><span class="annottext">VirtualReg
+</span><a href="#local-6989586621681032958"><span class="hs-identifier hs-var">vLo</span></a></span><span>
+</span><span id="line-317"></span><span>      </span><span class="annot"><span class="annottext">(Reg, Reg) -&gt; NatM (Reg, Reg)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Reg
+</span><a href="#local-6989586621681032957"><span class="hs-identifier hs-var">lo</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Reg
+</span><a href="#local-6989586621681032956"><span class="hs-identifier hs-var">hi</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-318"></span><span>
+</span><span id="line-319"></span><span>
+</span><span id="line-320"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getPicBaseMaybeNat"><span class="hs-identifier hs-type">getPicBaseMaybeNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="GHC.Platform.Reg.html#Reg"><span class="hs-identifier hs-type">Reg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-321"></span><span id="getPicBaseMaybeNat"><span class="annot"><span class="annottext">getPicBaseMaybeNat :: NatM (Maybe Reg)
+</span><a href="GHC.CmmToAsm.Monad.html#getPicBaseMaybeNat"><span class="hs-identifier hs-var hs-var">getPicBaseMaybeNat</span></a></span></span><span>
+</span><span id="line-322"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (Maybe Reg, NatM_State)) -&gt; NatM (Maybe Reg)
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681032954"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032954"><span class="hs-identifier hs-var">state</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; Maybe Reg
+</span><a href="GHC.CmmToAsm.Monad.html#natm_pic"><span class="hs-identifier hs-var hs-var">natm_pic</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032954"><span class="hs-identifier hs-var">state</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032954"><span class="hs-identifier hs-var">state</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-323"></span><span>
+</span><span id="line-324"></span><span>
+</span><span id="line-325"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getPicBaseNat"><span class="hs-identifier hs-type">getPicBaseNat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="GHC.Platform.Reg.html#Reg"><span class="hs-identifier hs-type">Reg</span></a></span><span>
+</span><span id="line-326"></span><span id="getPicBaseNat"><span class="annot"><span class="annottext">getPicBaseNat :: Format -&gt; NatM Reg
+</span><a href="GHC.CmmToAsm.Monad.html#getPicBaseNat"><span class="hs-identifier hs-var hs-var">getPicBaseNat</span></a></span></span><span> </span><span id="local-6989586621681032953"><span class="annot"><span class="annottext">Format
+</span><a href="#local-6989586621681032953"><span class="hs-identifier hs-var">rep</span></a></span></span><span>
+</span><span id="line-327"></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>   </span><span id="local-6989586621681032952"><span class="annot"><span class="annottext">Maybe Reg
+</span><a href="#local-6989586621681032952"><span class="hs-identifier hs-var">mbPicBase</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NatM (Maybe Reg)
+</span><a href="GHC.CmmToAsm.Monad.html#getPicBaseMaybeNat"><span class="hs-identifier hs-var">getPicBaseMaybeNat</span></a></span><span>
+</span><span id="line-328"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe Reg
+</span><a href="#local-6989586621681032952"><span class="hs-identifier hs-var">mbPicBase</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-329"></span><span>                </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681032951"><span class="annot"><span class="annottext">Reg
+</span><a href="#local-6989586621681032951"><span class="hs-identifier hs-var">picBase</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Reg -&gt; NatM Reg
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><a href="../../base/src/GHC.Base.html#return"><span class="hs-identifier hs-var">return</span></a></span><span> </span><span class="annot"><span class="annottext">Reg
+</span><a href="#local-6989586621681032951"><span class="hs-identifier hs-var">picBase</span></a></span><span>
+</span><span id="line-330"></span><span>                </span><span class="annot"><span class="annottext">Maybe Reg
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-331"></span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-332"></span><span>                        </span><span id="local-6989586621681032950"><span class="annot"><span class="annottext">Reg
+</span><a href="#local-6989586621681032950"><span class="hs-identifier hs-var">reg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Format -&gt; NatM Reg
+</span><a href="GHC.CmmToAsm.Monad.html#getNewRegNat"><span class="hs-identifier hs-var">getNewRegNat</span></a></span><span> </span><span class="annot"><span class="annottext">Format
+</span><a href="#local-6989586621681032953"><span class="hs-identifier hs-var">rep</span></a></span><span>
+</span><span id="line-333"></span><span>                        </span><span class="annot"><span class="annottext">(NatM_State -&gt; (Reg, NatM_State)) -&gt; NatM Reg
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681032949"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032949"><span class="hs-identifier hs-var">state</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Reg
+</span><a href="#local-6989586621681032950"><span class="hs-identifier hs-var">reg</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032949"><span class="hs-identifier hs-var">state</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">natm_pic :: Maybe Reg
+</span><a href="GHC.CmmToAsm.Monad.html#natm_pic"><span class="hs-identifier hs-var">natm_pic</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Reg -&gt; Maybe Reg
+forall a. a -&gt; Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Reg
+</span><a href="#local-6989586621681032950"><span class="hs-identifier hs-var">reg</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-334"></span><span>
+</span><span id="line-335"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getModLoc"><span class="hs-identifier hs-type">getModLoc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="GHC.Unit.Module.Location.html#ModLocation"><span class="hs-identifier hs-type">ModLocation</span></a></span><span>
+</span><span id="line-336"></span><span id="getModLoc"><span class="annot"><span class="annottext">getModLoc :: NatM ModLocation
+</span><a href="GHC.CmmToAsm.Monad.html#getModLoc"><span class="hs-identifier hs-var hs-var">getModLoc</span></a></span></span><span>
+</span><span id="line-337"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (ModLocation, NatM_State)) -&gt; NatM ModLocation
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (ModLocation, NatM_State)) -&gt; NatM ModLocation)
+-&gt; (NatM_State -&gt; (ModLocation, NatM_State)) -&gt; NatM ModLocation
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621681032948"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032948"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; ModLocation
+</span><a href="GHC.CmmToAsm.Monad.html#natm_modloc"><span class="hs-identifier hs-var hs-var">natm_modloc</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032948"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032948"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-338"></span><span>
+</span><span id="line-339"></span><span class="hs-comment">-- | Get native code generator configuration</span><span>
+</span><span id="line-340"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getConfig"><span class="hs-identifier hs-type">getConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Config.html#NCGConfig"><span class="hs-identifier hs-type">NCGConfig</span></a></span><span>
+</span><span id="line-341"></span><span id="getConfig"><span class="annot"><span class="annottext">getConfig :: NatM NCGConfig
+</span><a href="GHC.CmmToAsm.Monad.html#getConfig"><span class="hs-identifier hs-var hs-var">getConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (NCGConfig, NatM_State)) -&gt; NatM NCGConfig
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (NCGConfig, NatM_State)) -&gt; NatM NCGConfig)
+-&gt; (NatM_State -&gt; (NCGConfig, NatM_State)) -&gt; NatM NCGConfig
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681032947"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032947"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; NCGConfig
+</span><a href="GHC.CmmToAsm.Monad.html#natm_config"><span class="hs-identifier hs-var hs-var">natm_config</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032947"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032947"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-342"></span><span>
+</span><span id="line-343"></span><span class="hs-comment">-- | Get target platform from native code generator configuration</span><span>
+</span><span id="line-344"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getPlatform"><span class="hs-identifier hs-type">getPlatform</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><a href="../../ghc-boot/src/GHC.Platform.html#Platform"><span class="hs-identifier hs-type">Platform</span></a></span><span>
+</span><span id="line-345"></span><span id="getPlatform"><span class="annot"><span class="annottext">getPlatform :: NatM Platform
+</span><a href="GHC.CmmToAsm.Monad.html#getPlatform"><span class="hs-identifier hs-var hs-var">getPlatform</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NCGConfig -&gt; Platform
+</span><a href="GHC.CmmToAsm.Config.html#ncgPlatform"><span class="hs-identifier hs-var hs-var">ncgPlatform</span></a></span><span> </span><span class="annot"><span class="annottext">(NCGConfig -&gt; Platform) -&gt; NatM NCGConfig -&gt; NatM Platform
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="../../base/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">NatM NCGConfig
+</span><a href="GHC.CmmToAsm.Monad.html#getConfig"><span class="hs-identifier hs-var">getConfig</span></a></span><span>
+</span><span id="line-346"></span><span>
+</span><span id="line-347"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getFileId"><span class="hs-identifier hs-type">getFileId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Data.FastString.html#FastString"><span class="hs-identifier hs-type">FastString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-348"></span><span id="getFileId"><span class="annot"><span class="annottext">getFileId :: FastString -&gt; NatM Int
+</span><a href="GHC.CmmToAsm.Monad.html#getFileId"><span class="hs-identifier hs-var hs-var">getFileId</span></a></span></span><span> </span><span id="local-6989586621681032946"><span class="annot"><span class="annottext">FastString
+</span><a href="#local-6989586621681032946"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (Int, NatM_State)) -&gt; NatM Int
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (Int, NatM_State)) -&gt; NatM Int)
+-&gt; (NatM_State -&gt; (Int, NatM_State)) -&gt; NatM Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681032945"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032945"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-349"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">DwarfFiles -&gt; FastString -&gt; Maybe (FastString, Int)
+forall key elt. Uniquable key =&gt; UniqFM key elt -&gt; key -&gt; Maybe elt
+</span><a href="GHC.Types.Unique.FM.html#lookupUFM"><span class="hs-identifier hs-var">lookupUFM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; DwarfFiles
+</span><a href="GHC.CmmToAsm.Monad.html#natm_fileid"><span class="hs-identifier hs-var hs-var">natm_fileid</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032945"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">FastString
+</span><a href="#local-6989586621681032946"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-350"></span><span>    </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FastString
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span id="local-6989586621681032943"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681032943"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681032943"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032945"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-351"></span><span>    </span><span class="annot"><span class="annottext">Maybe (FastString, Int)
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681032940"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681032940"><span class="hs-identifier hs-var hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="../../base/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">DwarfFiles -&gt; Int
+forall key elt. UniqFM key elt -&gt; Int
+</span><a href="GHC.Types.Unique.FM.html#sizeUFM"><span class="hs-identifier hs-var">sizeUFM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; DwarfFiles
+</span><a href="GHC.CmmToAsm.Monad.html#natm_fileid"><span class="hs-identifier hs-var hs-var">natm_fileid</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032945"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-352"></span><span>                      </span><span id="local-6989586621681032936"><span class="annot"><span class="annottext">fids :: DwarfFiles
+</span><a href="#local-6989586621681032936"><span class="hs-identifier hs-var hs-var">fids</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DwarfFiles -&gt; FastString -&gt; (FastString, Int) -&gt; DwarfFiles
+forall key elt.
+Uniquable key =&gt;
+UniqFM key elt -&gt; key -&gt; elt -&gt; UniqFM key elt
+</span><a href="GHC.Types.Unique.FM.html#addToUFM"><span class="hs-identifier hs-var">addToUFM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; DwarfFiles
+</span><a href="GHC.CmmToAsm.Monad.html#natm_fileid"><span class="hs-identifier hs-var hs-var">natm_fileid</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032945"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">FastString
+</span><a href="#local-6989586621681032946"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FastString
+</span><a href="#local-6989586621681032946"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681032940"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-353"></span><span>                  </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681032940"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int, NatM_State) -&gt; (Int, NatM_State)
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="annot"><span class="annottext">DwarfFiles
+</span><a href="#local-6989586621681032936"><span class="hs-identifier hs-var">fids</span></a></span><span> </span><span class="annot"><span class="annottext">DwarfFiles -&gt; (Int, NatM_State) -&gt; (Int, NatM_State)
+</span><span class="hs-operator hs-var">`seq`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681032940"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032945"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">natm_fileid :: DwarfFiles
+</span><a href="GHC.CmmToAsm.Monad.html#natm_fileid"><span class="hs-identifier hs-var">natm_fileid</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DwarfFiles
+</span><a href="#local-6989586621681032936"><span class="hs-identifier hs-var">fids</span></a></span><span>  </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-354"></span><span>
+</span><span id="line-355"></span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#getDebugBlock"><span class="hs-identifier hs-type">getDebugBlock</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="GHC.Cmm.Dataflow.Label.html#Label"><span class="hs-identifier hs-type">Label</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-type">NatM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="GHC.Cmm.DebugBlock.html#DebugBlock"><span class="hs-identifier hs-type">DebugBlock</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-356"></span><span id="getDebugBlock"><span class="annot"><span class="annottext">getDebugBlock :: BlockId -&gt; NatM (Maybe DebugBlock)
+</span><a href="GHC.CmmToAsm.Monad.html#getDebugBlock"><span class="hs-identifier hs-var hs-var">getDebugBlock</span></a></span></span><span> </span><span id="local-6989586621681032933"><span class="annot"><span class="annottext">BlockId
+</span><a href="#local-6989586621681032933"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NatM_State -&gt; (Maybe DebugBlock, NatM_State))
+-&gt; NatM (Maybe DebugBlock)
+forall result. (NatM_State -&gt; (result, NatM_State)) -&gt; NatM result
+</span><a href="GHC.CmmToAsm.Monad.html#NatM"><span class="hs-identifier hs-var">NatM</span></a></span><span> </span><span class="annot"><span class="annottext">((NatM_State -&gt; (Maybe DebugBlock, NatM_State))
+ -&gt; NatM (Maybe DebugBlock))
+-&gt; (NatM_State -&gt; (Maybe DebugBlock, NatM_State))
+-&gt; NatM (Maybe DebugBlock)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="../../base/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681032932"><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032932"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KeyOf LabelMap -&gt; LabelMap DebugBlock -&gt; Maybe DebugBlock
+forall (map :: * -&gt; *) a.
+IsMap map =&gt;
+KeyOf map -&gt; map a -&gt; Maybe a
+</span><a href="GHC.Cmm.Dataflow.Collections.html#mapLookup"><span class="hs-identifier hs-var">mapLookup</span></a></span><span> </span><span class="annot"><span class="annottext">KeyOf LabelMap
+BlockId
+</span><a href="#local-6989586621681032933"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NatM_State -&gt; LabelMap DebugBlock
+</span><a href="GHC.CmmToAsm.Monad.html#natm_debug_map"><span class="hs-identifier hs-var hs-var">natm_debug_map</span></a></span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032932"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NatM_State
+</span><a href="#local-6989586621681032932"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-357"></span></pre></body></html>

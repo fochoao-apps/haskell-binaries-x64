@@ -1,0 +1,46 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">GHC.Settings.Utils</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Prelude.html#"><span class="hs-identifier">Prelude</span></a></span><span> </span><span class="hs-comment">-- See Note [Why do we import Prelude here?]</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="../../base/src/Data.Char.html#"><span class="hs-identifier">Data.Char</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="../../base/src/GHC.Unicode.html#isSpace"><span class="hs-identifier">isSpace</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span id="local-6989586621679059706"><span class="annot"><a href="GHC.Settings.Utils.html#maybeRead"><span class="hs-identifier hs-type">maybeRead</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.Read.html#Read"><span class="hs-identifier hs-type">Read</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679059706"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679059706"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-8"></span><span id="maybeRead"><span class="annot"><span class="annottext">maybeRead :: forall a. Read a =&gt; String -&gt; Maybe a
+</span><a href="GHC.Settings.Utils.html#maybeRead"><span class="hs-identifier hs-var hs-var">maybeRead</span></a></span></span><span> </span><span id="local-6989586621679059694"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679059694"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ReadS a
+forall a. Read a =&gt; ReadS a
+</span><a href="../../base/src/Text.Read.html#reads"><span class="hs-identifier hs-var">reads</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679059694"><span class="hs-identifier hs-var">str</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">[</span><span class="hs-special">(</span><span id="local-6989586621679059692"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679059692"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679059692"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><span class="annottext">[(a, String)]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span id="local-6989586621679059691"><span class="annot"><a href="GHC.Settings.Utils.html#maybeReadFuzzy"><span class="hs-identifier hs-type">maybeReadFuzzy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="../../base/src/GHC.Read.html#Read"><span class="hs-identifier hs-type">Read</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679059691"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="../../base/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679059691"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-13"></span><span id="maybeReadFuzzy"><span class="annot"><span class="annottext">maybeReadFuzzy :: forall a. Read a =&gt; String -&gt; Maybe a
+</span><a href="GHC.Settings.Utils.html#maybeReadFuzzy"><span class="hs-identifier hs-var hs-var">maybeReadFuzzy</span></a></span></span><span> </span><span id="local-6989586621679059685"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679059685"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ReadS a
+forall a. Read a =&gt; ReadS a
+</span><a href="../../base/src/Text.Read.html#reads"><span class="hs-identifier hs-var">reads</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679059685"><span class="hs-identifier hs-var">str</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">[</span><span class="hs-special">(</span><span id="local-6989586621679059684"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679059684"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679059683"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679059683"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; String -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
+</span><a href="../../base/src/Data.Foldable.html#all"><span class="hs-identifier hs-var">all</span></a></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Bool
+</span><a href="../../base/src/GHC.Unicode.html#isSpace"><span class="hs-identifier hs-var">isSpace</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679059683"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679059684"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><span class="annottext">[(a, String)]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><a href="../../base/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-16"></span></pre></body></html>
